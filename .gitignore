@@ -1,3 +1,7 @@
 node_modules/
 .env
 .DS_Store
+
+# The SQLite database file is created automatically on first run,
+# so it should not be stored in Git.
+app.db
