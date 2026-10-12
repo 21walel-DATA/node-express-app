@@ -30,10 +30,19 @@
 
 ## This project
 
-A small Express 5 REST API with a SQLite database (`better-sqlite3`).
+Bootcamp Connect: an Express 5 web app with server-rendered EJS pages and a SQLite
+database (`better-sqlite3`). `PRD.md` says what is in scope and `roadmap.md` lists
+the features in build order. Read both before feature work.
 
-- `index.js` holds everything: server setup, database initialisation, and the CRUD routes for the `users` table under `/api/users`.
-- `app.db` is the SQLite database file, created automatically on first run.
+- `index.js` only starts the server.
+- `app.js` builds the Express app (middleware and routes) without starting it, so tests can load it.
+- `db.js` opens the database, switches on foreign keys, and runs `schema.sql` at startup.
+- `schema.sql` holds every table. Add new tables there with `CREATE TABLE IF NOT EXISTS`.
+- `routes/` has one file per feature, plugged in from `app.js`.
+- `views/` has the EJS pages. Every page includes `partials/header` and `partials/footer`.
+- `public/style.css` is the one stylesheet. Colours are CSS variables, with a dark mode block.
+- `tests/` has one `*.test.js` file per feature. Each starts with `require('./helpers')`, which uses an in-memory database.
+- `app.db` is the local SQLite database file, created automatically on first run and ignored by Git. `DB_PATH` overrides its location (on Railway it points into the volume).
 - Always use prepared statements with `?` placeholders for SQL, never string concatenation.
 
 ### Commands
@@ -42,4 +51,5 @@ A small Express 5 REST API with a SQLite database (`better-sqlite3`).
 - `npm run dev` starts the server with nodemon (restarts on file changes).
 - `npm start` starts the server with plain node.
 - The server listens on `http://localhost:3000` unless `PORT` is set.
-- There is no test setup yet.
+- `npm test` runs all the tests with Node's built-in test runner.
+- `docker build -t bootcamp-connect .` builds the image that Railway runs.
