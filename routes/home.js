@@ -13,7 +13,8 @@ const router = express.Router();
 
 // 1. HOME: A simple page that proves the server is running.
 router.get('/', (req, res) => {
-  res.json({ message: 'Bootcamp Connect is running' });
+  // res.render fills in the views/home.ejs template and sends the HTML
+  res.render('home');
 });
 
 // Share the router with app.js

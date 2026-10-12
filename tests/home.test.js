@@ -16,17 +16,29 @@ const app = require('./helpers');
 // HOME PAGE
 // ---------------------------------------------------------
 
-// 1. NORMAL CASE: the home page answers and says the app is running
-test('GET / says the app is running', async () => {
+// 1. NORMAL CASE: the home page answers with an HTML page
+test('GET / shows the home page', async () => {
   // Ask the app for the home page and wait for the answer
   const response = await request(app).get('/');
 
   // 200 is the HTTP status code for "OK"
   assert.strictEqual(response.status, 200);
-  assert.strictEqual(response.body.message, 'Bootcamp Connect is running');
+  // The answer should be a web page, not JSON
+  assert.match(response.headers['content-type'], /html/);
+  // response.text is the HTML. Check the heading and the stylesheet link.
+  assert.match(response.text, /<h1>Bootcamp Connect<\/h1>/);
+  assert.match(response.text, /href="\/style.css"/);
 });
 
-// 2. DENIED ACCESS: the old open practice routes must stay removed
+// 2. NORMAL CASE: the shared stylesheet is served from public/
+test('GET /style.css returns the stylesheet', async () => {
+  const response = await request(app).get('/style.css');
+
+  assert.strictEqual(response.status, 200);
+  assert.match(response.headers['content-type'], /css/);
+});
+
+// 3. DENIED ACCESS: the old open practice routes must stay removed
 test('GET /api/users is not available', async () => {
   const response = await request(app).get('/api/users');
 

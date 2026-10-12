@@ -1,0 +1,26 @@
+<%# views/partials/header.ejs
+    The top of every page. A "partial" is a piece of a page that is reused.
+    Each page starts with:  include('partials/header', { title: '...' })
+    and passes in its own title. %>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <%# Makes the page fit the width of the device it is shown on %>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <%# Tells the browser this site supports both light and dark mode %>
+  <meta name="color-scheme" content="light dark">
+  <title><%= title %> | Bootcamp Connect</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <%# Lets keyboard users jump straight past the navigation %>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="container">
+      <a class="site-name" href="/">Bootcamp Connect</a>
+    </div>
+  </header>
+
+  <main id="main" class="container">
