@@ -1,0 +1,22 @@
+# .dockerignore
+# Files and folders that "COPY . ." in the Dockerfile must leave out.
+
+# Installed fresh inside the image, for Linux, by "npm ci"
+node_modules/
+
+# Local database files. The live database lives in the Railway volume.
+app.db
+app.db-wal
+app.db-shm
+
+# Git history and local settings
+.git/
+.gitignore
+.env
+
+# Not needed to run the app
+tests/
+*.pdf
+*.md
+Dockerfile
+.dockerignore
