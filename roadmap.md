@@ -164,7 +164,7 @@ The five brief essentials are never cut, only simplified.
 
 ## Progress
 
-- [ ] 00 Foundations
+- [x] 00 Foundations
 - [ ] 01 Registration and login
 - [ ] 02 Profiles
 - [ ] 03 Matching
