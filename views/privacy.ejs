@@ -1,0 +1,66 @@
+<%# views/privacy.ejs
+    The privacy notice. Everyone must agree to it when they register.
+    PLACEHOLDER TEXT: Koulla is writing the final wording. To update it,
+    replace the text between the header and footer lines below. The three
+    topics come from PRD section 4.1: data safety, how profile information
+    is shown to other users, and consent to be contacted. %>
+<%- include('partials/header', { title: 'Privacy notice' }) %>
+
+<h1>Privacy notice</h1>
+
+<p class="notice">
+  Draft wording. This notice is still being written and may change.
+</p>
+
+<p class="lead">
+  What Bootcamp Connect stores about you, who can see it, and what you are
+  agreeing to when you register.
+</p>
+
+<h2>What we store and how we keep it safe</h2>
+<ul>
+  <li>
+    Your name, email address, course, and the profile details you choose to
+    add (what you are looking for, skills, interests, bio, business idea and
+    photo).
+  </li>
+  <li>
+    Your password is stored in a scrambled form. Nobody can read it, not
+    even the people who run the app.
+  </li>
+  <li>The date you agreed to this notice.</li>
+</ul>
+
+<h2>What other users can see</h2>
+<ul>
+  <li>
+    Other logged-in students can see your name, course and profile details.
+  </li>
+  <li>Your email address is never shown on your profile.</li>
+  <li>
+    Messages can be read only by you and the person you are talking to.
+  </li>
+</ul>
+
+<h2>Being contacted</h2>
+<ul>
+  <li>
+    By registering, you agree that other students on the bootcamp can send
+    you a connection request.
+  </li>
+  <li>
+    Nobody can message you until you have accepted their request. You can
+    decline any request.
+  </li>
+</ul>
+
+<h2>Your choices</h2>
+<ul>
+  <li>You can change your profile at any time.</li>
+  <li>
+    You can delete your account. This removes your profile, your requests
+    and your conversations.
+  </li>
+</ul>
+
+<%- include('partials/footer') %>

@@ -15,6 +15,7 @@ require('./db');
 const SqliteStore = require('./sessionStore');
 
 const homeRoutes = require('./routes/home');
+const privacyRoutes = require('./routes/privacy');
 
 const app = express();
 
@@ -79,6 +80,7 @@ app.use(
 
 // Each feature gets its own file in routes/ and is plugged in here.
 app.use('/', homeRoutes);
+app.use('/', privacyRoutes);
 
 // Share the app with index.js and the tests
 module.exports = app;
