@@ -1,0 +1,39 @@
+<%# views/login.ejs
+    The login form. routes/auth.js passes in:
+      errors   messages to show when the login was refused
+      values   the email typed last time, so the form can be refilled %>
+<%- include('partials/header', { title: 'Log in' }) %>
+
+<h1>Log in</h1>
+
+<%# Shown only when the login was refused %>
+<% if (errors.length > 0) { %>
+  <div class="error-box" role="alert">
+    <ul>
+      <% errors.forEach((error) => { %>
+        <li><%= error %></li>
+      <% }) %>
+    </ul>
+  </div>
+<% } %>
+
+<form method="post" action="/login" class="form">
+  <div class="form-field">
+    <label for="email">Email address</label>
+    <input type="email" id="email" name="email" value="<%= values.email || '' %>"
+      autocomplete="email" required>
+  </div>
+
+  <div class="form-field">
+    <label for="password">Password</label>
+    <%# current-password lets a password manager fill in the saved password %>
+    <input type="password" id="password" name="password"
+      autocomplete="current-password" required>
+  </div>
+
+  <button type="submit" class="button">Log in</button>
+</form>
+
+<p>No account yet? <a href="/register">Create an account</a></p>
+
+<%- include('partials/footer') %>

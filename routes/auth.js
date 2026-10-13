@@ -1,6 +1,6 @@
 // routes/auth.js
-// Routes for registering an account. Login and logout will be added here
-// next. "auth" is short for authentication: proving who somebody is.
+// Routes for registering an account, logging in and logging out.
+// "auth" is short for authentication: proving who somebody is.
 
 const express = require('express');
 // bcryptjs scrambles (hashes) passwords so the real one is never stored
@@ -140,6 +140,75 @@ router.post('/register', async (req, res, next) => {
 
     // Send the browser to the home page (the dashboard, once it exists)
     res.redirect('/');
+  });
+});
+
+// ---------------------------------------------------------
+// LOGIN AND LOGOUT ROUTES
+// ---------------------------------------------------------
+
+// The same message is used for an unknown email and for a wrong password.
+// Saying which one was wrong would tell a stranger which email addresses
+// have an account here.
+const LOGIN_ERROR = 'The email address or password is incorrect.';
+
+// 3. LOGIN FORM: Show an empty login form.
+router.get('/login', (req, res) => {
+  res.render('login', { errors: [], values: {} });
+});
+
+// 4. LOGIN: Check the email and password, then remember the user.
+router.post('/login', async (req, res, next) => {
+  const body = req.body || {};
+  const email = String(body.email || '').trim();
+  const password = String(body.password || '');
+
+  // Look the user up by email. The column is COLLATE NOCASE, so the
+  // letter case of what was typed does not matter.
+  const user = db
+    .prepare('SELECT id, password_hash FROM users WHERE email = ?')
+    .get(email);
+
+  // bcrypt.compare hashes the typed password the same way and checks it
+  // against the stored hash. It answers true or false.
+  // "user &&" skips the check when no user was found.
+  const passwordMatches =
+    user && (await bcrypt.compare(password, user.password_hash));
+
+  // 401 is the HTTP status code for "Unauthorized": we do not know who
+  // this is. The email is sent back to refill the form; the password is not.
+  if (!passwordMatches) {
+    res.status(401);
+    return res.render('login', { errors: [LOGIN_ERROR], values: { email } });
+  }
+
+  // Start a fresh session, exactly as registration does
+  req.session.regenerate((err) => {
+    if (err) {
+      return next(err);
+    }
+
+    req.session.userId = user.id;
+    res.redirect('/');
+  });
+});
+
+// 5. LOGOUT: Forget the user.
+// This is a POST, not a GET, because it changes something. A GET can be
+// triggered just by loading a link or an image, so another website could
+// log people out without them clicking anything.
+router.post('/logout', (req, res, next) => {
+  // destroy() deletes the session's row from the database
+  // (it calls destroy in sessionStore.js)
+  req.session.destroy((err) => {
+    if (err) {
+      return next(err);
+    }
+
+    // Tell the browser to throw away the session cookie as well.
+    // connect.sid is the name express-session gives its cookie.
+    res.clearCookie('connect.sid');
+    res.redirect('/login');
   });
 });
 
