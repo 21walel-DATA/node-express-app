@@ -1,0 +1,79 @@
+<%# views/register.ejs
+    The registration form. routes/auth.js passes in:
+      courses  the list of courses for the dropdown
+      errors   messages to show when the form was filled in wrongly
+      values   what the person typed last time, so the form can be refilled
+    The "equals" tag used below prints a value safely: any HTML in it is
+    shown as plain text, so nobody can sneak a script into the page through
+    a form field. (EJS tags cannot be written inside a comment like this
+    one, because their closing mark would end the comment early.) %>
+<%- include('partials/header', { title: 'Register' }) %>
+
+<h1>Create an account</h1>
+
+<%# Show the list of problems only when there are some.
+    role="alert" makes a screen reader read the box out straight away. %>
+<% if (errors.length > 0) { %>
+  <div class="error-box" role="alert">
+    <p>Please fix the following:</p>
+    <ul>
+      <% errors.forEach((error) => { %>
+        <li><%= error %></li>
+      <% }) %>
+    </ul>
+  </div>
+<% } %>
+
+<%# method="post" sends the fields in the body of the request, not in the
+    address bar. action is the route that receives them. %>
+<form method="post" action="/register" class="form">
+  <%# Each label's "for" matches an input's "id", which links the two:
+      clicking the label focuses the field, and screen readers read it. %>
+  <div class="form-field">
+    <label for="name">Name</label>
+    <input type="text" id="name" name="name" value="<%= values.name || '' %>"
+      maxlength="100" autocomplete="name" required>
+  </div>
+
+  <div class="form-field">
+    <label for="email">Email address</label>
+    <input type="email" id="email" name="email" value="<%= values.email || '' %>"
+      maxlength="254" autocomplete="email" required>
+  </div>
+
+  <div class="form-field">
+    <label for="password">Password</label>
+    <p class="hint" id="password-hint">At least 8 characters.</p>
+    <input type="password" id="password" name="password" minlength="8"
+      maxlength="72" autocomplete="new-password"
+      aria-describedby="password-hint" required>
+  </div>
+
+  <div class="form-field">
+    <label for="course_id">Course</label>
+    <select id="course_id" name="course_id" required>
+      <option value="">Choose your course</option>
+      <% courses.forEach((course) => { %>
+        <%# Mark the course that was chosen last time as selected %>
+        <option value="<%= course.id %>"
+          <%= course.id === values.courseId ? 'selected' : '' %>>
+          <%= course.name %>
+        </option>
+      <% }) %>
+    </select>
+  </div>
+
+  <%# The checkbox is never ticked for the person, even after a mistake:
+      agreeing has to be something they do themselves each time. %>
+  <div class="form-check">
+    <input type="checkbox" id="privacy" name="privacy" value="yes" required>
+    <label for="privacy">
+      I have read and agree to the
+      <a href="/privacy" target="_blank" rel="noopener">privacy notice (opens in a new tab)</a>
+    </label>
+  </div>
+
+  <button type="submit" class="button">Create account</button>
+</form>
+
+<%- include('partials/footer') %>
