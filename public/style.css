@@ -236,3 +236,41 @@ main.container {
 .error-box ul {
   margin: 0.25rem 0 0;
 }
+
+/* ---------------------------------------------------------
+   6. NAVIGATION
+   --------------------------------------------------------- */
+
+/* Put the site name on the left and the links on the right.
+   flex-wrap lets the links drop to a second line on a narrow screen. */
+.site-header .container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+/* The links sit in a row with space between them */
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* The logged-in person's name */
+.site-nav-name {
+  color: var(--color-muted);
+}
+
+/* A button that looks like a link. Used for Log out, which has to be a
+   button inside a form but should look like the links beside it. */
+.link-button {
+  font: inherit;
+  color: var(--color-accent);
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}

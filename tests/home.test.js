@@ -11,15 +11,19 @@ const request = require('supertest');
 
 // The app, set up to use a throwaway in-memory database
 const app = require('./helpers');
+// loginAs gives us a pretend user who is already logged in
+const { loginAs } = require('./loginHelper');
 
 // ---------------------------------------------------------
 // HOME PAGE
 // ---------------------------------------------------------
 
-// 1. NORMAL CASE: the home page answers with an HTML page
-test('GET / shows the home page', async () => {
+// 1. NORMAL CASE: a logged-in user gets the home page as HTML
+test('GET / shows the home page to a logged-in user', async () => {
+  const agent = await loginAs(app, { name: 'Sam Taylor' });
+
   // Ask the app for the home page and wait for the answer
-  const response = await request(app).get('/');
+  const response = await agent.get('/');
 
   // 200 is the HTTP status code for "OK"
   assert.strictEqual(response.status, 200);
@@ -28,9 +32,12 @@ test('GET / shows the home page', async () => {
   // response.text is the HTML. Check the heading and the stylesheet link.
   assert.match(response.text, /<h1>Bootcamp Connect<\/h1>/);
   assert.match(response.text, /href="\/style.css"/);
+  // The page says who is logged in
+  assert.match(response.text, /You are logged in as Sam Taylor/);
 });
 
-// 2. NORMAL CASE: the shared stylesheet is served from public/
+// 2. NORMAL CASE: the shared stylesheet is served from public/, even to a
+// logged-out visitor (the login page needs it too)
 test('GET /style.css returns the stylesheet', async () => {
   const response = await request(app).get('/style.css');
 
@@ -40,7 +47,10 @@ test('GET /style.css returns the stylesheet', async () => {
 
 // 3. DENIED ACCESS: the old open practice routes must stay removed
 test('GET /api/users is not available', async () => {
-  const response = await request(app).get('/api/users');
+  // Logged in, so the answer comes from the routes and not the login check
+  const agent = await loginAs(app);
+
+  const response = await agent.get('/api/users');
 
   // 404 is the HTTP status code for "Not Found"
   assert.strictEqual(response.status, 404);

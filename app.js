@@ -14,6 +14,9 @@ require('./db');
 // Our store that keeps sessions in the SQLite database
 const SqliteStore = require('./sessionStore');
 
+// Middleware that works out who is logged in, and the "must be logged in" check
+const { loadCurrentUser, requireLogin } = require('./middleware/auth');
+
 const homeRoutes = require('./routes/home');
 const privacyRoutes = require('./routes/privacy');
 const authRoutes = require('./routes/auth');
@@ -80,9 +83,27 @@ app.use(
 // ---------------------------------------------------------
 
 // Each feature gets its own file in routes/ and is plugged in here.
-app.use('/', homeRoutes);
+// ORDER MATTERS: Express runs these lines from top to bottom for every
+// request, so a route's position decides which checks run before it.
+
+// Work out who is logged in. This runs for every page, public or not, so
+// the header can show the right links everywhere.
+app.use(loadCurrentUser);
+
+// PUBLIC PAGES: these sit above the login check, so anyone can open them
+// (PRD section 8: only register, login and the privacy notice).
 app.use('/', privacyRoutes);
 app.use('/', authRoutes);
+
+// THE LOGIN CHECK: everything below this line needs a logged-in user.
+// A logged-out visitor is sent to /login and never reaches the routes below.
+app.use(requireLogin);
+
+// FEATURE 02 (Koulla): the "finish your profile setup" gate and the profile
+// routes go here, directly after the login check.
+
+// LOGGED-IN PAGES
+app.use('/', homeRoutes);
 
 // Share the app with index.js and the tests
 module.exports = app;

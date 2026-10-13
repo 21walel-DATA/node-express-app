@@ -1,5 +1,5 @@
 <%# views/home.ejs
-    The home page. For now it only proves the app is running.
+    The home page, shown after login. Feature 03 turns it into the dashboard.
     Every page follows this shape: header, its own content, footer. %>
 <%- include('partials/header', { title: 'Home' }) %>
 
@@ -12,6 +12,7 @@
   whose skills, interests and aims fit yours.
 </p>
 
-<p class="notice">The app is running. Registration and login are coming next.</p>
+<%# Only logged-in users can reach this page, so currentUser is always set %>
+<p class="notice">You are logged in as <%= currentUser.name %>.</p>
 
 <%- include('partials/footer') %>
