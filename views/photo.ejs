@@ -1,0 +1,36 @@
+<%# views/photo.ejs
+    The page for uploading a profile photo. routes/photo.js passes in
+    "errors", the problems to show when an upload was refused. %>
+<%- include('partials/header', { title: 'Profile photo' }) %>
+
+<p><a href="/profile/<%= currentUser.id %>">&larr; My profile</a></p>
+
+<h1>Profile photo</h1>
+
+<%# role="alert" makes a screen reader read the box out straight away %>
+<% if (errors.length > 0) { %>
+  <div class="error-box" role="alert">
+    <p>That did not work:</p>
+    <ul>
+      <% errors.forEach((error) => { %>
+        <li><%= error %></li>
+      <% }) %>
+    </ul>
+  </div>
+<% } %>
+
+<%# enctype="multipart/form-data" is needed for any form that sends a file.
+    Without it, the browser sends only the file's name, not the file. %>
+<form method="post" action="/photo" enctype="multipart/form-data" class="form">
+  <div class="form-field">
+    <label for="photo">Choose a photo</label>
+    <p class="hint" id="photo-hint">A JPEG image (.jpg or .jpeg), 2 MB or smaller.</p>
+    <%# accept makes the file picker show JPEGs first. It is only a hint for
+        the browser; the server checks the file itself as well. %>
+    <input type="file" id="photo" name="photo" accept="image/jpeg" aria-describedby="photo-hint" required>
+  </div>
+
+  <button type="submit" class="button">Upload photo</button>
+</form>
+
+<%- include('partials/footer') %>
