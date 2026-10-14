@@ -177,5 +177,8 @@ through on its own. The test above still checks this.
 
 ### Open questions
 
-- **Should admins skip the setup gate?** Right now the gate covers everyone,
-  admins too. Decide when the admin screens (feature 05) are built.
+- ~~**Should admins skip the setup gate?**~~ **Answered by Walied in feature 05
+  (pull request #8, 14 October 2026):** yes, for the admin pages. In `app.js`
+  the `/admin` pages sit above the gate, because admins are organisers, not
+  students, and never fill in a student profile. Every other page (the
+  dashboard, profiles) still goes through the gate, for admins too.
