@@ -1,7 +1,7 @@
 // routes/connections.js
 // Routes for feature 04, connection requests (see specs/04-messaging.md).
 // The Connections page, sending, accepting and declining requests, and the
-// conversation page. Sending a message comes in the next build step.
+// conversation page with sending a message.
 
 const express = require('express');
 const db = require('../db');
@@ -185,32 +185,36 @@ router.post('/connections/:id/decline', (req, res) => {
   answerRequest(req, res, 'declined');
 });
 
-// 5. CONVERSATION PAGE: the messages between two connected people.
-// ":id" is the accepted request's id number: one request, one conversation.
-router.get('/conversations/:id', (req, res) => {
-  const userId = res.locals.currentUser.id;
+// The longest a message may be (decision 3 in specs/04-messaging.md)
+const MESSAGE_MAX_LENGTH = 500;
 
-  // Only whole numbers can be conversation numbers.
-  // Every "no" in this route shows the same "misdirected" page with 404, so
-  // a snooper cannot tell "not yours" from "does not exist" (decision 4).
-  if (!/^\d+$/.test(req.params.id)) {
-    return res.status(404).render('conversation-not-found');
+// Finds a conversation the logged-in user may open, or gives back null.
+// Used by both conversation routes below, so the check is written once.
+// The rules are inside the question, like answerRequest above: find this
+// request ONLY if it is accepted AND the user is one of its two people.
+// Anyone else, or an address that is not a number, gets null.
+function findConversation(idFromAddress, userId) {
+  if (!/^\d+$/.test(idFromAddress)) {
+    return null;
   }
-  const conversationId = Number(req.params.id);
-
-  // The rules are inside the question, like answerRequest above: find this
-  // request ONLY if it is accepted AND the logged-in user is one of its two
-  // people. Anyone else gets nothing back.
   const conversation = db
     .prepare(
-      `SELECT sender_id, receiver_id FROM connection_requests
+      `SELECT id, sender_id, receiver_id FROM connection_requests
        WHERE id = ? AND status = 'accepted'
          AND (sender_id = ? OR receiver_id = ?)`
     )
-    .get(conversationId, userId, userId);
-  if (!conversation) {
-    return res.status(404).render('conversation-not-found');
-  }
+    .get(Number(idFromAddress), userId, userId);
+
+  // .get() gives undefined when nothing fits; null is clearer to check
+  return conversation || null;
+}
+
+// Shows the conversation page. Used for a normal visit, and again when a
+// message was refused: then errors holds the messages to show, and
+// draft is the person's text, put back in the box. status is 200 (OK) or
+// 400 (Bad Request).
+function renderConversation(res, conversation, { errors = [], draft = '', status = 200 } = {}) {
+  const userId = res.locals.currentUser.id;
 
   // The other person is whichever of the two is not the logged-in user
   const otherId =
@@ -227,11 +231,75 @@ router.get('/conversations/:id', (req, res) => {
        WHERE messages.request_id = ?
        ORDER BY messages.created_at, messages.id`
     )
-    .all(conversationId)
+    .all(conversation.id)
     // Add the UK time to each message, ready for the page
     .map((message) => ({ ...message, time: formatTime(message.created_at) }));
 
-  res.render('conversation', { conversationId, otherPerson, messages });
+  res.status(status).render('conversation', {
+    conversationId: conversation.id,
+    otherPerson,
+    messages,
+    errors,
+    draft,
+  });
+}
+
+// 5. CONVERSATION PAGE: the messages between two connected people.
+// ":id" is the accepted request's id number: one request, one conversation.
+// Every "no" shows the same "misdirected" page with 404, so a snooper
+// cannot tell "not yours" from "does not exist" (decision 4).
+router.get('/conversations/:id', (req, res) => {
+  const conversation = findConversation(req.params.id, res.locals.currentUser.id);
+  if (!conversation) {
+    return res.status(404).render('conversation-not-found');
+  }
+
+  renderConversation(res, conversation);
+});
+
+// 6. SEND A MESSAGE: the Send button on the conversation page
+router.post('/conversations/:id', (req, res) => {
+  const userId = res.locals.currentUser.id;
+
+  // The same check as reading: only the two people, only once accepted
+  const conversation = findConversation(req.params.id, userId);
+  if (!conversation) {
+    return res.status(404).render('conversation-not-found');
+  }
+
+  // Tidy the text: a new line sent as \r\n counts as ONE character (the
+  // same as the browser counts it), and spaces at both ends are removed.
+  // req.body is undefined if no form was sent, so "|| {}" avoids a crash.
+  const body = req.body || {};
+  const message = String(body.message || '').replace(/\r\n/g, '\n').trim();
+
+  // Check the message, the same way the profile form checks its fields
+  if (message.length === 0) {
+    return renderConversation(res, conversation, {
+      errors: ['Please write a message before sending.'],
+      draft: message,
+      status: 400,
+    });
+  }
+  if (message.length > MESSAGE_MAX_LENGTH) {
+    return renderConversation(res, conversation, {
+      errors: [`Your message must be ${MESSAGE_MAX_LENGTH} characters or fewer.`],
+      draft: message,
+      status: 400,
+    });
+  }
+
+  // Save it. The sender is ALWAYS the logged-in user: anything else the
+  // form sends (such as a sender_id) is ignored.
+  db.prepare('INSERT INTO messages (request_id, sender_id, body) VALUES (?, ?, ?)').run(
+    conversation.id,
+    userId,
+    message
+  );
+
+  // Post/Redirect/Get: show the conversation again, so refreshing the page
+  // does not send the message twice
+  res.redirect(`/conversations/${conversation.id}`);
 });
 
 // Share the router with app.js

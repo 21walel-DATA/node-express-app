@@ -4,6 +4,8 @@
       otherPerson     the other person in it (id, name)
       messages        oldest first: body, senderName, time (UK time) and
                       created_at (the time as saved, in UTC)
+      errors          messages to show when a message was refused
+      draft           the refused text, put back in the box
     The route has already checked that the logged-in user is one of the two
     people, so this page never has to. %>
 
@@ -34,6 +36,29 @@
   </ol>
 <% } %>
 
-<%# The box for writing a new message comes in build step 5 %>
+<%# Problems with a refused message. role="alert" makes a screen reader
+    read the box out straight away. %>
+<% if (errors.length > 0) { %>
+  <div class="error-box" role="alert">
+    <ul>
+      <% errors.forEach((error) => { %>
+        <li><%= error %></li>
+      <% }) %>
+    </ul>
+  </div>
+<% } %>
+
+<%# The box for a new message. maxlength stops the browser accepting more
+    than 500 characters; the server checks again, because a browser can be
+    bypassed. draft is the refused text, put back so it is not lost. It goes
+    BETWEEN the textarea tags on one line, so no extra spaces sneak in. %>
+<form method="post" action="/conversations/<%= conversationId %>" class="form">
+  <div class="form-field">
+    <label for="message">Your message</label>
+    <p class="hint" id="message-hint">Up to 500 characters. Refresh the page to see new replies.</p>
+    <textarea id="message" name="message" maxlength="500" rows="3" aria-describedby="message-hint"><%= draft %></textarea>
+  </div>
+  <button type="submit" class="button">Send</button>
+</form>
 
 <%- include('partials/footer') %>

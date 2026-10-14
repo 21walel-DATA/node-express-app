@@ -1,7 +1,7 @@
 // tests/messages.test.js
 // Tests for feature 04, conversations and messages (specs/04-messaging.md).
-// The groups, in order: reading a conversation, who may open it, and the
-// "Open conversation" links.
+// The groups, in order: reading a conversation, who may open it, the
+// "Open conversation" links, and sending a message.
 // Run all tests with: npm test
 
 // test: Node's built-in function for defining one test
@@ -199,4 +199,152 @@ test('each connection on the Connections page links to the conversation', async 
   const response = await receiver.get('/connections');
 
   assert.match(response.text, new RegExp(`href="/conversations/${requestId}"`));
+});
+
+// ---------------------------------------------------------
+// 4. SENDING A MESSAGE
+// ---------------------------------------------------------
+
+// Counts the messages in one conversation
+function countMessages(requestId) {
+  return db.prepare('SELECT COUNT(*) AS total FROM messages WHERE request_id = ?').get(requestId)
+    .total;
+}
+
+test('the conversation page has a labelled box for writing a message', async () => {
+  const { sender, requestId } = await makeConnectedPair();
+
+  const response = await sender.get(`/conversations/${requestId}`);
+
+  assert.match(response.text, new RegExp(`<form method="post" action="/conversations/${requestId}"`));
+  assert.match(response.text, /<label for="message">Your message<\/label>/);
+  // The browser stops at 500 characters too (the server checks again)
+  assert.match(response.text, /<textarea[^>]*id="message"[^>]*maxlength="500"/);
+});
+
+test('sending a message saves it and the other person can read it', async () => {
+  const { sender, receiver, requestId } = await makeConnectedPair();
+
+  const response = await sender
+    .post(`/conversations/${requestId}`)
+    .type('form')
+    .send({ message: 'Hello, shall we meet?' });
+
+  // Post/Redirect/Get: back to the conversation
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, `/conversations/${requestId}`);
+
+  const saved = db.prepare('SELECT sender_id, body FROM messages WHERE request_id = ?').get(requestId);
+  assert.strictEqual(saved.sender_id, sender.user.id);
+  assert.strictEqual(saved.body, 'Hello, shall we meet?');
+
+  const receiverView = await receiver.get(`/conversations/${requestId}`);
+  assert.match(receiverView.text, /Hello, shall we meet\?/);
+});
+
+test('the sender is always the logged-in user, whatever the form says', async () => {
+  const { sender, receiver, requestId } = await makeConnectedPair();
+
+  // A sneaky extra field trying to post as the other person
+  await sender
+    .post(`/conversations/${requestId}`)
+    .type('form')
+    .send({ message: 'Who sent this?', sender_id: receiver.user.id });
+
+  const saved = db.prepare('SELECT sender_id FROM messages WHERE request_id = ?').get(requestId);
+  assert.strictEqual(saved.sender_id, sender.user.id);
+});
+
+test('an empty message, or only spaces, is refused and nothing is saved', async () => {
+  const { sender, requestId } = await makeConnectedPair();
+
+  const empty = await sender.post(`/conversations/${requestId}`).type('form').send({ message: '' });
+  const spaces = await sender
+    .post(`/conversations/${requestId}`)
+    .type('form')
+    .send({ message: '   ' });
+
+  // 400 is the HTTP status code for "Bad Request"
+  assert.strictEqual(empty.status, 400);
+  assert.match(empty.text, /Please write a message before sending\./);
+  assert.strictEqual(spaces.status, 400);
+  assert.strictEqual(countMessages(requestId), 0);
+});
+
+test('a message over 500 characters is refused, and the text stays in the box', async () => {
+  const { sender, requestId } = await makeConnectedPair();
+  const tooLong = 'b'.repeat(501);
+
+  const response = await sender
+    .post(`/conversations/${requestId}`)
+    .type('form')
+    .send({ message: tooLong });
+
+  assert.strictEqual(response.status, 400);
+  assert.match(response.text, /Your message must be 500 characters or fewer\./);
+  assert.match(response.text, new RegExp(`>${tooLong}</textarea>`));
+  assert.strictEqual(countMessages(requestId), 0);
+});
+
+test('a message of exactly 500 characters is accepted', async () => {
+  const { sender, requestId } = await makeConnectedPair();
+
+  const response = await sender
+    .post(`/conversations/${requestId}`)
+    .type('form')
+    .send({ message: 'c'.repeat(500) });
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(countMessages(requestId), 1);
+});
+
+test('a third person cannot post in a conversation', async () => {
+  const { requestId } = await makeConnectedPair();
+  const outsider = await loginAs(app, { setupComplete: true });
+
+  const response = await outsider
+    .post(`/conversations/${requestId}`)
+    .type('form')
+    .send({ message: 'Let me in' });
+
+  assertMisdirected(response);
+  assert.strictEqual(countMessages(requestId), 0);
+});
+
+test('you cannot message someone whose request is still waiting', async () => {
+  const sender = await loginAs(app, { setupComplete: true });
+  const receiver = createUser({ setupComplete: true });
+  const requestId = addRequest(sender.user.id, receiver.id, 'pending');
+
+  const response = await sender
+    .post(`/conversations/${requestId}`)
+    .type('form')
+    .send({ message: 'Hello?' });
+
+  assertMisdirected(response);
+  assert.strictEqual(countMessages(requestId), 0);
+});
+
+test('posting to a conversation that does not exist, or "abc", shows the misdirected page', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+
+  assertMisdirected(
+    await agent.post('/conversations/999999').type('form').send({ message: 'Hi' })
+  );
+  assertMisdirected(await agent.post('/conversations/abc').type('form').send({ message: 'Hi' }));
+});
+
+test('a logged-out visitor cannot post a message', async () => {
+  const sender = createUser({ setupComplete: true });
+  const receiver = createUser({ setupComplete: true });
+  const requestId = addRequest(sender.id, receiver.id, 'accepted');
+
+  const response = await request(app)
+    .post(`/conversations/${requestId}`)
+    .type('form')
+    .send({ message: 'Hi' });
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/login');
+  assert.strictEqual(countMessages(requestId), 0);
 });

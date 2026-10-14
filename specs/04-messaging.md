@@ -152,6 +152,10 @@ One small step at a time, test first, one commit each.
 4. The conversation page (reading). **Done** (`tests/messages.test.js`).
    "Open conversation" links are on a connected profile and next to each
    connection. No messages yet shows "No messages yet. Say hello!".
+5. Send a message. **Done.** Empty (or only spaces): "Please write a
+   message before sending." Over 500 characters: "Your message must be 500
+   characters or fewer.", with the text kept in the box. The sender is
+   always the logged-in user, whatever the form sends.
 
 ## Open questions
 
