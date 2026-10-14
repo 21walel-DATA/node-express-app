@@ -1,0 +1,519 @@
+// tests/account.test.js
+// Tests for feature 06, the Account page (specs/06-account.md).
+// The groups, in order: showing the page, changing details, changing the
+// password, and deleting the account.
+// Run all tests with: npm test
+
+// fs ("file system") lets a test read a file, here the stylesheet
+const fs = require('node:fs');
+// path joins folder and file names in a way that works on every computer
+const path = require('node:path');
+
+// test: Node's built-in function for defining one test
+const test = require('node:test');
+// assert: Node's built-in checks. If a check fails, the test fails.
+const assert = require('node:assert');
+// request: supertest sends a pretend HTTP request straight to the app
+const request = require('supertest');
+
+// The app, set up to use a throwaway in-memory database
+const app = require('./helpers');
+const db = require('../db');
+// loginAs gives us a pretend user who is already logged in.
+// createUser adds a user without logging them in.
+// TEST_PASSWORD is the password every pretend user has
+const { loginAs, createUser, TEST_PASSWORD } = require('./loginHelper');
+
+// ---------------------------------------------------------
+// 1. SHOWING THE ACCOUNT PAGE
+// ---------------------------------------------------------
+
+test('the Account page shows your name and email, filled in', async () => {
+  const agent = await loginAs(app, {
+    name: 'Amira Account',
+    email: 'amira@example.com',
+    setupComplete: true,
+  });
+
+  const response = await agent.get('/account');
+
+  assert.strictEqual(response.status, 200);
+  assert.match(response.text, /<h1>Account settings<\/h1>/);
+  // The boxes start with the saved values in them
+  assert.match(response.text, /<input[^>]*id="name"[^>]*value="Amira Account"/);
+  assert.match(response.text, /<input[^>]*id="email"[^>]*value="amira@example\.com"/);
+  // The details form saves to /account/details
+  assert.match(response.text, /<form method="post" action="\/account\/details"/);
+});
+
+test('your own profile links to the Account page', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+
+  const response = await agent.get(`/profile/${agent.user.id}`);
+
+  assert.match(response.text, /<a href="\/account">Account settings<\/a>/);
+});
+
+test('someone else\'s profile has no link to the Account page', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const other = createUser({ setupComplete: true });
+
+  const response = await agent.get(`/profile/${other.id}`);
+
+  assert.strictEqual(response.status, 200);
+  assert.doesNotMatch(response.text, /Account settings/);
+});
+
+test('a logged-out visitor cannot see the Account page', async () => {
+  const response = await request(app).get('/account');
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/login');
+});
+
+test('a user who has not finished setup is sent to the profile form', async () => {
+  // Decision 4: the setup gate still covers the Account page
+  const agent = await loginAs(app, { setupComplete: false });
+
+  const response = await agent.get('/account');
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/profile/edit');
+});
+
+// ---------------------------------------------------------
+// HELPERS FOR THE FORMS
+// ---------------------------------------------------------
+
+// Reads a user's saved name and email straight from the database
+function getSaved(userId) {
+  return db.prepare('SELECT name, email FROM users WHERE id = ?').get(userId);
+}
+
+// Tries to log in with an email and password. Gives back true if it worked
+// (the login page answers a correct login with a redirect, 302).
+async function canLogIn(email, password) {
+  const response = await request(app).post('/login').type('form').send({ email, password });
+  return response.status === 302;
+}
+
+// ---------------------------------------------------------
+// 2. CHANGING NAME AND EMAIL
+// ---------------------------------------------------------
+
+test('changing only the name saves it, with no password needed', async () => {
+  const agent = await loginAs(app, { name: 'Old Name', setupComplete: true });
+  const { email } = getSaved(agent.user.id);
+
+  const response = await agent
+    .post('/account/details')
+    .type('form')
+    .send({ name: 'New Name', email });
+
+  // Post/Redirect/Get: back to the Account page with a "saved" message
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/account?saved=details');
+  assert.strictEqual(getSaved(agent.user.id).name, 'New Name');
+
+  const page = await agent.get('/account?saved=details');
+  assert.match(page.text, /Your details have been saved\./);
+});
+
+test('changing the email with the right current password saves it, and the new email works', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const { name } = getSaved(agent.user.id);
+
+  const response = await agent.post('/account/details').type('form').send({
+    name,
+    email: 'brand-new@example.com',
+    current_password: TEST_PASSWORD,
+  });
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(getSaved(agent.user.id).email, 'brand-new@example.com');
+  assert.ok(await canLogIn('brand-new@example.com', TEST_PASSWORD), 'the new email logs in');
+});
+
+test('changing the email with a wrong or missing current password is refused', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const before = getSaved(agent.user.id);
+
+  const wrong = await agent.post('/account/details').type('form').send({
+    name: before.name,
+    email: 'not-allowed@example.com',
+    current_password: 'not-the-password',
+  });
+  const missing = await agent.post('/account/details').type('form').send({
+    name: before.name,
+    email: 'not-allowed@example.com',
+  });
+
+  // 400 is the HTTP status code for "Bad Request"
+  assert.strictEqual(wrong.status, 400);
+  assert.match(wrong.text, /To change your email, enter your current password\./);
+  assert.strictEqual(missing.status, 400);
+  assert.match(missing.text, /To change your email, enter your current password\./);
+  assert.strictEqual(getSaved(agent.user.id).email, before.email);
+});
+
+test('an empty or too-long name is refused', async () => {
+  const agent = await loginAs(app, { name: 'Kept Name', setupComplete: true });
+  const { email } = getSaved(agent.user.id);
+
+  const empty = await agent.post('/account/details').type('form').send({ name: '   ', email });
+  const tooLong = await agent
+    .post('/account/details')
+    .type('form')
+    .send({ name: 'n'.repeat(101), email });
+
+  assert.strictEqual(empty.status, 400);
+  assert.match(empty.text, /Enter your name\./);
+  assert.strictEqual(tooLong.status, 400);
+  assert.match(tooLong.text, /Your name must be 100 characters or fewer\./);
+  assert.strictEqual(getSaved(agent.user.id).name, 'Kept Name');
+});
+
+test('a badly written email is refused', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const before = getSaved(agent.user.id);
+
+  const response = await agent.post('/account/details').type('form').send({
+    name: before.name,
+    email: 'not-an-email',
+    current_password: TEST_PASSWORD,
+  });
+
+  assert.strictEqual(response.status, 400);
+  assert.match(response.text, /Enter a valid email address\./);
+  assert.strictEqual(getSaved(agent.user.id).email, before.email);
+});
+
+test('an email already used by another account is refused', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  createUser({ email: 'taken@example.com', setupComplete: true });
+  const before = getSaved(agent.user.id);
+
+  const response = await agent.post('/account/details').type('form').send({
+    name: before.name,
+    email: 'TAKEN@example.com',
+    current_password: TEST_PASSWORD,
+  });
+
+  assert.strictEqual(response.status, 400);
+  assert.match(response.text, /An account with that email address already exists\./);
+  assert.strictEqual(getSaved(agent.user.id).email, before.email);
+});
+
+test('a refused form keeps what was typed, but never the password', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+
+  const response = await agent.post('/account/details').type('form').send({
+    name: 'Typed Name',
+    email: 'typed@example.com',
+    current_password: 'secret-typed-password',
+  });
+
+  assert.strictEqual(response.status, 400);
+  assert.match(response.text, /<input[^>]*id="name"[^>]*value="Typed Name"/);
+  assert.match(response.text, /<input[^>]*id="email"[^>]*value="typed@example\.com"/);
+  assert.doesNotMatch(response.text, /secret-typed-password/);
+});
+
+test('only the logged-in user\'s details change, whatever id the form sends', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const other = createUser({ name: 'Other Person', setupComplete: true });
+  const { email } = getSaved(agent.user.id);
+
+  await agent
+    .post('/account/details')
+    .type('form')
+    .send({ name: 'Changed', email, user_id: other.id, id: other.id });
+
+  assert.strictEqual(getSaved(other.id).name, 'Other Person');
+  assert.strictEqual(getSaved(agent.user.id).name, 'Changed');
+});
+
+test('a logged-out visitor cannot change any details', async () => {
+  const response = await request(app)
+    .post('/account/details')
+    .type('form')
+    .send({ name: 'Nobody', email: 'nobody@example.com' });
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/login');
+});
+
+// ---------------------------------------------------------
+// 3. CHANGING THE PASSWORD
+// ---------------------------------------------------------
+
+// Sends the change-password form for a logged-in agent
+function changePassword(agent, fields) {
+  return agent.post('/account/password').type('form').send(fields);
+}
+
+test('the Account page has a labelled change-password form', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+
+  const response = await agent.get('/account');
+
+  assert.match(response.text, /<form method="post" action="\/account\/password"/);
+  assert.match(response.text, /<label for="current_password">Current password<\/label>/);
+  assert.match(response.text, /<label for="new_password">New password<\/label>/);
+  assert.match(response.text, /<label for="new_password_again">Type the new password again<\/label>/);
+});
+
+test('changing the password works at the next login, and the old one stops working', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const { email } = getSaved(agent.user.id);
+
+  const response = await changePassword(agent, {
+    current_password: TEST_PASSWORD,
+    new_password: 'a-brand-new-password',
+    new_password_again: 'a-brand-new-password',
+  });
+
+  // Post/Redirect/Get: back to the Account page with a "saved" message
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/account?saved=password');
+  const page = await agent.get('/account?saved=password');
+  assert.match(page.text, /Your password has been changed\./);
+
+  // Still logged in: the page loaded (200), not a redirect to login
+  assert.strictEqual(page.status, 200);
+
+  assert.ok(await canLogIn(email, 'a-brand-new-password'), 'the new password logs in');
+  assert.ok(!(await canLogIn(email, TEST_PASSWORD)), 'the old password no longer logs in');
+});
+
+test('a wrong current password is refused, and the old password still works', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const { email } = getSaved(agent.user.id);
+
+  const response = await changePassword(agent, {
+    current_password: 'not-the-password',
+    new_password: 'a-brand-new-password',
+    new_password_again: 'a-brand-new-password',
+  });
+
+  // 400 is the HTTP status code for "Bad Request"
+  assert.strictEqual(response.status, 400);
+  assert.match(response.text, /Your current password is incorrect\./);
+  assert.ok(await canLogIn(email, TEST_PASSWORD), 'the old password still logs in');
+});
+
+test('a new password that is too short or too long is refused', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const { email } = getSaved(agent.user.id);
+
+  const tooShort = await changePassword(agent, {
+    current_password: TEST_PASSWORD,
+    new_password: 'short',
+    new_password_again: 'short',
+  });
+  const tooLong = await changePassword(agent, {
+    current_password: TEST_PASSWORD,
+    new_password: 'p'.repeat(73),
+    new_password_again: 'p'.repeat(73),
+  });
+
+  assert.strictEqual(tooShort.status, 400);
+  assert.match(tooShort.text, /Your new password must be at least 8 characters\./);
+  assert.strictEqual(tooLong.status, 400);
+  assert.match(tooLong.text, /Your new password must be 72 characters or fewer\./);
+  assert.ok(await canLogIn(email, TEST_PASSWORD), 'the old password still logs in');
+});
+
+test('two new passwords that differ are refused', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const { email } = getSaved(agent.user.id);
+
+  const response = await changePassword(agent, {
+    current_password: TEST_PASSWORD,
+    new_password: 'a-brand-new-password',
+    new_password_again: 'a-brand-new-pasword',
+  });
+
+  assert.strictEqual(response.status, 400);
+  assert.match(response.text, /The two new passwords do not match\./);
+  assert.ok(await canLogIn(email, TEST_PASSWORD), 'the old password still logs in');
+});
+
+test('a refused password form never puts any password back into the page', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+
+  const response = await changePassword(agent, {
+    current_password: 'secret-current-typed',
+    new_password: 'secret-new-typed-1',
+    new_password_again: 'secret-new-typed-2',
+  });
+
+  assert.strictEqual(response.status, 400);
+  assert.doesNotMatch(response.text, /secret-current-typed|secret-new-typed/);
+});
+
+test('a logged-out visitor cannot change a password', async () => {
+  const response = await request(app).post('/account/password').type('form').send({
+    current_password: TEST_PASSWORD,
+    new_password: 'a-brand-new-password',
+    new_password_again: 'a-brand-new-password',
+  });
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/login');
+});
+
+// ---------------------------------------------------------
+// 4. DELETING THE ACCOUNT (Part B)
+// ---------------------------------------------------------
+
+// Does a user with this id still exist?
+function userExists(userId) {
+  return db.prepare('SELECT id FROM users WHERE id = ?').get(userId) !== undefined;
+}
+
+test('the Account page has a labelled "Delete my account" form', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+
+  const response = await agent.get('/account');
+
+  assert.match(response.text, /<form method="post" action="\/account\/delete"/);
+  assert.match(response.text, /<label for="delete_password">Password<\/label>/);
+  assert.match(response.text, /Delete my account<\/button>/);
+});
+
+test('deleting with the right password removes the account and logs the user out', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const { email } = getSaved(agent.user.id);
+  // Something that belongs to them: a connection request they sent
+  const other = createUser({ setupComplete: true });
+  db.prepare(
+    "INSERT INTO connection_requests (sender_id, receiver_id, status) VALUES (?, ?, 'accepted')"
+  ).run(agent.user.id, other.id);
+
+  const response = await agent.post('/account/delete').type('form').send({ password: TEST_PASSWORD });
+
+  // The goodbye page (decision 3), shown as logged out
+  assert.strictEqual(response.status, 200);
+  assert.match(response.text, /Your account has been deleted\./);
+  assert.match(response.text, /href="\/login"/);
+
+  // The account and their request are gone
+  assert.ok(!userExists(agent.user.id), 'the user row is gone');
+  const requests = db
+    .prepare('SELECT COUNT(*) AS total FROM connection_requests WHERE sender_id = ?')
+    .get(agent.user.id).total;
+  assert.strictEqual(requests, 0);
+
+  // Logged out: the same browser is sent to the login page
+  const after = await agent.get('/account');
+  assert.strictEqual(after.status, 302);
+  assert.strictEqual(after.headers.location, '/login');
+
+  // And they cannot log in again
+  assert.ok(!(await canLogIn(email, TEST_PASSWORD)), 'the deleted account cannot log in');
+});
+
+test('deleting with a wrong or missing password deletes nothing', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+
+  const wrong = await agent
+    .post('/account/delete')
+    .type('form')
+    .send({ password: 'not-the-password' });
+  const missing = await agent.post('/account/delete').type('form').send({});
+
+  // 400 is the HTTP status code for "Bad Request"
+  assert.strictEqual(wrong.status, 400);
+  assert.match(wrong.text, /Your password is incorrect\. Your account has not been deleted\./);
+  assert.strictEqual(missing.status, 400);
+  assert.ok(userExists(agent.user.id), 'the account is still there');
+
+  // Still logged in
+  const page = await agent.get('/account');
+  assert.strictEqual(page.status, 200);
+});
+
+test('deleting only ever deletes the logged-in user, whatever id the form sends', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const other = createUser({ setupComplete: true });
+
+  await agent
+    .post('/account/delete')
+    .type('form')
+    .send({ password: TEST_PASSWORD, user_id: other.id, id: other.id });
+
+  assert.ok(userExists(other.id), 'the other account is still there');
+  assert.ok(!userExists(agent.user.id), 'only the logged-in account was deleted');
+});
+
+test('a logged-out visitor cannot delete any account', async () => {
+  const other = createUser({ setupComplete: true });
+
+  const response = await request(app)
+    .post('/account/delete')
+    .type('form')
+    .send({ password: TEST_PASSWORD, user_id: other.id });
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/login');
+  assert.ok(userExists(other.id));
+});
+
+// ---------------------------------------------------------
+// 5. STYLES (build step 5)
+// Tests cannot see how a page LOOKS. They can check the class names, and
+// that the colours are easy to read.
+// ---------------------------------------------------------
+
+// The whole stylesheet, as text
+const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'style.css'), 'utf8');
+
+// Works out how easy it is to read one colour on another (the WCAG
+// "contrast ratio"). 1 means no difference; 21 is black on white. PRD
+// section 7 asks for at least 4.5. The same formula as in profile.test.js.
+function contrastRatio(colourA, colourB) {
+  // How bright a colour looks to the human eye, from 0 (black) to 1 (white)
+  function brightness(hex) {
+    const [red, green, blue] = [1, 3, 5].map((start) => {
+      const value = parseInt(hex.slice(start, start + 2), 16) / 255;
+      return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  }
+
+  const lighter = Math.max(brightness(colourA), brightness(colourB));
+  const darker = Math.min(brightness(colourA), brightness(colourB));
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+// Finds every value given to a colour variable in style.css, in order.
+// The first is light mode; the second is in the dark mode block.
+function colourValues(variable) {
+  const pattern = new RegExp(`${variable}:\\s*(#[0-9a-fA-F]{6})`, 'g');
+  return [...css.matchAll(pattern)].map((found) => found[1]);
+}
+
+test('the Delete button uses the button-danger class, which has the error colour', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+
+  const response = await agent.get('/account');
+
+  assert.match(response.text, /class="button button-danger">Delete my account/);
+  // A .button-danger rule whose background is the error colour
+  assert.match(css, /\.button-danger\s*\{[^}]*background:\s*var\(--color-error\)/);
+});
+
+test('the Delete button text passes the 4.5 contrast rule in light and dark mode', () => {
+  // A .button's text uses the page background colour (see section 5 of
+  // style.css), and .button-danger puts it on the error colour
+  const backgrounds = colourValues('--color-bg');
+  const errors = colourValues('--color-error');
+  assert.strictEqual(backgrounds.length, 2, 'a light and a dark --color-bg');
+  assert.strictEqual(errors.length, 2, 'a light and a dark --color-error');
+
+  ['light', 'dark'].forEach((mode, index) => {
+    const ratio = contrastRatio(backgrounds[index], errors[index]);
+    assert.ok(ratio >= 4.5, `${mode} mode: contrast ${ratio.toFixed(2)} is at least 4.5`);
+  });
+});

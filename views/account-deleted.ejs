@@ -1,0 +1,12 @@
+<%# views/account-deleted.ejs
+    The goodbye page, shown once straight after someone deletes their own
+    account (decision 3 in specs/06-account.md). They are already logged
+    out, so the header shows the logged-out links. %>
+
+<%- include('partials/header', { title: 'Account deleted' }) %>
+
+<h1>Your account has been deleted.</h1>
+<p>Your profile, connection requests, conversations and photo have been removed. Thank you for trying Bootcamp Connect.</p>
+<p><a href="/login">Back to the login page</a></p>
+
+<%- include('partials/footer') %>

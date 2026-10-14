@@ -1,0 +1,105 @@
+<%# views/account.ejs
+    The Account page, at /account. routes/account.js passes in:
+      errors  messages to show when a form was refused
+      values  what to put in the details boxes: name and email
+      saved   a "saved" message after a form was saved, or ''
+    Every form on this page acts on the logged-in user only.
+    Passwords are never put back into the page. %>
+
+<%- include('partials/header', { title: 'Account settings' }) %>
+
+<h1>Account settings</h1>
+
+<%# role="status" makes a screen reader read the message out politely %>
+<% if (saved) { %>
+  <p class="notice" role="status"><%= saved %></p>
+<% } %>
+
+<%# Show the list of problems only when there are some.
+    role="alert" makes a screen reader read the box out straight away. %>
+<% if (errors.length > 0) { %>
+  <div class="error-box" role="alert">
+    <p>Please fix the following:</p>
+    <ul>
+      <% errors.forEach((error) => { %>
+        <li><%= error %></li>
+      <% }) %>
+    </ul>
+  </div>
+<% } %>
+
+<%# PART A: change your name and email %>
+<h2>Your details</h2>
+<form method="post" action="/account/details" class="form">
+  <div class="form-field">
+    <label for="name">Name</label>
+    <input type="text" id="name" name="name" value="<%= values.name %>"
+      maxlength="100" autocomplete="name" required>
+  </div>
+
+  <div class="form-field">
+    <label for="email">Email address</label>
+    <input type="email" id="email" name="email" value="<%= values.email %>"
+      maxlength="254" autocomplete="email" required>
+  </div>
+
+  <%# Decision 1: only checked when the email changes. No value is ever
+      put in it. autocomplete="current-password" lets a password manager
+      fill it in. %>
+  <div class="form-field">
+    <label for="details_current_password">Current password</label>
+    <p class="hint" id="details-password-hint">Only needed if you change your email.</p>
+    <input type="password" id="details_current_password" name="current_password"
+      maxlength="72" autocomplete="current-password"
+      aria-describedby="details-password-hint">
+  </div>
+
+  <button type="submit" class="button">Save details</button>
+</form>
+
+<%# PART A: change password. Decision 2: the new one is typed twice, to
+    catch a typo that would lock the person out. The boxes always start
+    empty. autocomplete="new-password" tells a password manager these are
+    new, so it can offer to save them. %>
+<h2>Change password</h2>
+<form method="post" action="/account/password" class="form">
+  <div class="form-field">
+    <label for="current_password">Current password</label>
+    <input type="password" id="current_password" name="current_password"
+      maxlength="72" autocomplete="current-password" required>
+  </div>
+
+  <div class="form-field">
+    <label for="new_password">New password</label>
+    <p class="hint" id="new-password-hint">At least 8 characters.</p>
+    <input type="password" id="new_password" name="new_password" minlength="8"
+      maxlength="72" autocomplete="new-password"
+      aria-describedby="new-password-hint" required>
+  </div>
+
+  <div class="form-field">
+    <label for="new_password_again">Type the new password again</label>
+    <input type="password" id="new_password_again" name="new_password_again" minlength="8"
+      maxlength="72" autocomplete="new-password" required>
+  </div>
+
+  <button type="submit" class="button">Change password</button>
+</form>
+
+<%# PART B: delete my account. The password box confirms it really is
+    the account owner, and that it is not a click by mistake. %>
+<h2>Delete my account</h2>
+<p>This removes your account, your profile, your connection requests, your conversations and your photo. <strong>It cannot be undone.</strong></p>
+<form method="post" action="/account/delete" class="form">
+  <div class="form-field">
+    <label for="delete_password">Password</label>
+    <p class="hint" id="delete-password-hint">Type your password to confirm.</p>
+    <input type="password" id="delete_password" name="password"
+      maxlength="72" autocomplete="current-password"
+      aria-describedby="delete-password-hint" required>
+  </div>
+
+  <button type="submit" class="button button-danger">Delete my account</button>
+</form>
+
+<%- include('partials/footer') %>
