@@ -627,3 +627,18 @@ main.container {
   white-space: pre-line;
   overflow-wrap: anywhere;
 }
+
+/* ---------------------------------------------------------
+   11. ACCOUNT PAGE (feature 06, Koulla)
+   The Account page (views/account.ejs). Everything else on it reuses
+   the form, notice and error box styles above.
+   --------------------------------------------------------- */
+
+/* A button for something that cannot be undone (Delete my account).
+   It uses the error colour so it looks different from a normal button.
+   The text keeps the .button rule's colour (the page background), which
+   tests/account.test.js checks is easy to read on the error colour, in
+   light and dark mode. */
+.button-danger {
+  background: var(--color-error);
+}

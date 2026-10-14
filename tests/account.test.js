@@ -4,6 +4,11 @@
 // password, and deleting the account.
 // Run all tests with: npm test
 
+// fs ("file system") lets a test read a file, here the stylesheet
+const fs = require('node:fs');
+// path joins folder and file names in a way that works on every computer
+const path = require('node:path');
+
 // test: Node's built-in function for defining one test
 const test = require('node:test');
 // assert: Node's built-in checks. If a check fails, the test fails.
@@ -453,4 +458,62 @@ test('a logged-out visitor cannot delete any account', async () => {
   assert.strictEqual(response.status, 302);
   assert.strictEqual(response.headers.location, '/login');
   assert.ok(userExists(other.id));
+});
+
+// ---------------------------------------------------------
+// 5. STYLES (build step 5)
+// Tests cannot see how a page LOOKS. They can check the class names, and
+// that the colours are easy to read.
+// ---------------------------------------------------------
+
+// The whole stylesheet, as text
+const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'style.css'), 'utf8');
+
+// Works out how easy it is to read one colour on another (the WCAG
+// "contrast ratio"). 1 means no difference; 21 is black on white. PRD
+// section 7 asks for at least 4.5. The same formula as in profile.test.js.
+function contrastRatio(colourA, colourB) {
+  // How bright a colour looks to the human eye, from 0 (black) to 1 (white)
+  function brightness(hex) {
+    const [red, green, blue] = [1, 3, 5].map((start) => {
+      const value = parseInt(hex.slice(start, start + 2), 16) / 255;
+      return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  }
+
+  const lighter = Math.max(brightness(colourA), brightness(colourB));
+  const darker = Math.min(brightness(colourA), brightness(colourB));
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+// Finds every value given to a colour variable in style.css, in order.
+// The first is light mode; the second is in the dark mode block.
+function colourValues(variable) {
+  const pattern = new RegExp(`${variable}:\\s*(#[0-9a-fA-F]{6})`, 'g');
+  return [...css.matchAll(pattern)].map((found) => found[1]);
+}
+
+test('the Delete button uses the button-danger class, which has the error colour', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+
+  const response = await agent.get('/account');
+
+  assert.match(response.text, /class="button button-danger">Delete my account/);
+  // A .button-danger rule whose background is the error colour
+  assert.match(css, /\.button-danger\s*\{[^}]*background:\s*var\(--color-error\)/);
+});
+
+test('the Delete button text passes the 4.5 contrast rule in light and dark mode', () => {
+  // A .button's text uses the page background colour (see section 5 of
+  // style.css), and .button-danger puts it on the error colour
+  const backgrounds = colourValues('--color-bg');
+  const errors = colourValues('--color-error');
+  assert.strictEqual(backgrounds.length, 2, 'a light and a dark --color-bg');
+  assert.strictEqual(errors.length, 2, 'a light and a dark --color-error');
+
+  ['light', 'dark'].forEach((mode, index) => {
+    const ratio = contrastRatio(backgrounds[index], errors[index]);
+    assert.ok(ratio >= 4.5, `${mode} mode: contrast ${ratio.toFixed(2)} is at least 4.5`);
+  });
 });
