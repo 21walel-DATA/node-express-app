@@ -1,8 +1,13 @@
 // tests/messages.test.js
 // Tests for feature 04, conversations and messages (specs/04-messaging.md).
 // The groups, in order: reading a conversation, who may open it, the
-// "Open conversation" links, and sending a message.
+// "Open conversation" links, sending a message, and the styles.
 // Run all tests with: npm test
+
+// fs ("file system") lets a test read a file, here the stylesheet
+const fs = require('node:fs');
+// path joins folder and file names in a way that works on every computer
+const path = require('node:path');
 
 // test: Node's built-in function for defining one test
 const test = require('node:test');
@@ -347,4 +352,42 @@ test('a logged-out visitor cannot post a message', async () => {
   assert.strictEqual(response.status, 302);
   assert.strictEqual(response.headers.location, '/login');
   assert.strictEqual(countMessages(requestId), 0);
+});
+
+// ---------------------------------------------------------
+// 5. STYLES (build step 6)
+// Tests cannot see how a page LOOKS. They can check that every class name
+// the messaging pages use has a rule in the stylesheet, so nothing is
+// left unstyled by mistake.
+// ---------------------------------------------------------
+
+test('every class used by the messaging pages has a rule in style.css', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'style.css'), 'utf8');
+  const views = ['connections.ejs', 'conversation.ejs', 'profile.ejs'].map((file) =>
+    fs.readFileSync(path.join(__dirname, '..', 'views', file), 'utf8')
+  );
+
+  // The new class names from feature 04
+  const classNames = [
+    'connection-status',
+    'person-list',
+    'person-course',
+    'person-status',
+    'person-actions',
+    'button-secondary',
+    'message-list',
+    'message',
+    'message-meta',
+    'message-body',
+  ];
+
+  for (const name of classNames) {
+    // The class really is used on a page (so this list stays honest)...
+    // (Inside a `...` string each backslash must be written twice.)
+    const used = views.some((view) => new RegExp(`class="[^"]*\\b${name}\\b`).test(view));
+    assert.ok(used, `a messaging page uses the class ${name}`);
+    // ...and the stylesheet has a rule for it. (?![\w-]) means "and the
+    // name ends here", so .message does not count .message-list.
+    assert.match(css, new RegExp(`\\.${name}(?![\\w-])`), `style.css has a rule for .${name}`);
+  }
 });
