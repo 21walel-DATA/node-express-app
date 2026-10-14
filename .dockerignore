@@ -9,6 +9,9 @@ app.db
 app.db-wal
 app.db-shm
 
+# Local uploaded photos. The live photos live in the Railway volume.
+photos/
+
 # Git history and local settings
 .git/
 .gitignore

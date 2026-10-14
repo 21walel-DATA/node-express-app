@@ -20,6 +20,7 @@ const { loadCurrentUser, requireLogin, requireAdmin } = require('./middleware/au
 
 const homeRoutes = require('./routes/home');
 const adminRoutes = require('./routes/admin');
+const photoRoutes = require('./routes/photo');
 const privacyRoutes = require('./routes/privacy');
 const authRoutes = require('./routes/auth');
 
@@ -118,6 +119,9 @@ app.use('/', profileRoutes);
 
 // LOGGED-IN PAGES
 app.use('/', homeRoutes);
+// FEATURE 07: uploading a profile photo, at /photo (not /profile/photo,
+// which the profile routes above would read as the profile of user "photo")
+app.use('/', photoRoutes);
 
 // Share the app with index.js and the tests
 module.exports = app;
