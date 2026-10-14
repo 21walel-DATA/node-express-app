@@ -1,12 +1,18 @@
 <%# views/admin.ejs
     The admin home page. Only admins can reach it (see requireAdmin in
-    middleware/auth.js). Each later step of feature 05 adds a link here. %>
+    middleware/auth.js). routes/admin.js passes in "lists", the list
+    settings, and this page makes one link for each. %>
 <%- include('partials/header', { title: 'Admin' }) %>
 
 <h1>Admin</h1>
 
 <p class="lead">Manage the lists students choose from, and the user accounts.</p>
 
-<p class="notice">The admin sections are being built. Links will appear here.</p>
+<h2>Lists</h2>
+<ul>
+  <% for (const list of lists) { %>
+    <li><a href="/admin/<%= list.path %>"><%= list.title %></a></li>
+  <% } %>
+</ul>
 
 <%- include('partials/footer') %>
