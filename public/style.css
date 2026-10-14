@@ -642,3 +642,16 @@ main.container {
 .button-danger {
   background: var(--color-error);
 }
+
+/* ---------------------------------------------------------
+   12. HEADER LINKS (Koulla, with Walied's agreement)
+   The header gained Connections and Account links (final live check
+   #20), so the links are now wider than a phone screen.
+   --------------------------------------------------------- */
+
+/* Let the header links carry on to a second line on a narrow screen,
+   instead of making the whole page scroll sideways. This adds to the
+   .site-nav rule in section 6. */
+.site-nav {
+  flex-wrap: wrap;
+}

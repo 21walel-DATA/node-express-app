@@ -517,3 +517,32 @@ test('the Delete button text passes the 4.5 contrast rule in light and dark mode
     assert.ok(ratio >= 4.5, `${mode} mode: contrast ${ratio.toFixed(2)} is at least 4.5`);
   });
 });
+
+// ---------------------------------------------------------
+// 6. THE HEADER LINK (added with Walied's agreement, final live check #20)
+// ---------------------------------------------------------
+
+test('the header has an Account link for a logged-in user', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+
+  const response = await agent.get('/');
+
+  // Only look inside the header's <nav>, so a link elsewhere on the page
+  // does not count
+  const nav = response.text.split('<nav')[1].split('</nav>')[0];
+  assert.match(nav, /<a href="\/account">Account<\/a>/);
+});
+
+test('the header has no Account link for a logged-out visitor', async () => {
+  const response = await request(app).get('/login');
+
+  const nav = response.text.split('<nav')[1].split('</nav>')[0];
+  assert.doesNotMatch(nav, /\/account/);
+});
+
+test('the header links can wrap onto a second line on a narrow phone', () => {
+  // With Connections and Account added, the links are wider than a phone
+  // screen. flex-wrap: wrap lets them carry on to the next line instead of
+  // making the whole page scroll sideways.
+  assert.match(css, /\.site-nav\s*\{[^}]*flex-wrap:\s*wrap/);
+});

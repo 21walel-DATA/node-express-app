@@ -31,6 +31,11 @@
           <%# The user's own profile page (feature 02). It is inside this
               "if", so it only shows when someone is logged in. %>
           <a href="/profile/<%= currentUser.id %>">My profile</a>
+          <%# Added by Koulla with Walied's agreement (final live check #20):
+              the Connections page (feature 04) and the Account page
+              (feature 06). Also inside the "if", so logged-in users only. %>
+          <a href="/connections">Connections</a>
+          <a href="/account">Account</a>
           <%# Only admins see the link to the admin pages %>
           <% if (currentUser.is_admin === 1) { %>
             <a href="/admin">Admin</a>
