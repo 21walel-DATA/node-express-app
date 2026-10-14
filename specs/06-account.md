@@ -107,6 +107,15 @@ that if time runs out, Part B can be cut (roadmap cut order, item 2).
 - An "Account" link in `views/partials/header.ejs`, to `/account`, shown
   only when someone is logged in.
 
+## Progress
+
+1. Show the Account page, and the link on your own profile. **Done**
+   (`tests/account.test.js`). The page reads the email from the database
+   itself, because `currentUser` leaves it out on purpose.
+2. Save name and email. **Done.** After saving: "Your details have been
+   saved." The current password is only checked when the email really
+   changes (capital letters do not count as a change).
+
 ## Open questions
 
 - None yet.

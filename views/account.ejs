@@ -2,12 +2,18 @@
     The Account page, at /account. routes/account.js passes in:
       errors  messages to show when a form was refused
       values  what to put in the details boxes: name and email
+      saved   a "saved" message after a form was saved, or ''
     Every form on this page acts on the logged-in user only.
     Passwords are never put back into the page. %>
 
 <%- include('partials/header', { title: 'Account settings' }) %>
 
 <h1>Account settings</h1>
+
+<%# role="status" makes a screen reader read the message out politely %>
+<% if (saved) { %>
+  <p class="notice" role="status"><%= saved %></p>
+<% } %>
 
 <%# Show the list of problems only when there are some.
     role="alert" makes a screen reader read the box out straight away. %>
@@ -35,6 +41,17 @@
     <label for="email">Email address</label>
     <input type="email" id="email" name="email" value="<%= values.email %>"
       maxlength="254" autocomplete="email" required>
+  </div>
+
+  <%# Decision 1: only checked when the email changes. No value is ever
+      put in it. autocomplete="current-password" lets a password manager
+      fill it in. %>
+  <div class="form-field">
+    <label for="details_current_password">Current password</label>
+    <p class="hint" id="details-password-hint">Only needed if you change your email.</p>
+    <input type="password" id="details_current_password" name="current_password"
+      maxlength="72" autocomplete="current-password"
+      aria-describedby="details-password-hint">
   </div>
 
   <button type="submit" class="button">Save details</button>
