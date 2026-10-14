@@ -5,3 +5,8 @@ node_modules/
 # The SQLite database file is created automatically on first run,
 # so it should not be stored in Git.
 app.db
+
+# Course slides, notes and the planning brief. They are for us to read,
+# not part of the app's code, so Git should not track them.
+*.pdf
+brief.md

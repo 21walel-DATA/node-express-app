@@ -1,18 +1,46 @@
 <%# views/home.ejs
-    The home page, shown after login. Feature 03 turns it into the dashboard.
+    The home page, shown after login: the dashboard with the user's top
+    matches. routes/home.js passes in "matches", the list from findMatches().
     Every page follows this shape: header, its own content, footer. %>
-<%- include('partials/header', { title: 'Home' }) %>
+<%- include('partials/header', { title: 'Dashboard' }) %>
 
-<h1>Bootcamp Connect</h1>
-
-<p class="lead">A place for ideas to meet action.</p>
-
-<p>
-  Find a student on the software development or business development course
-  whose skills, interests and aims fit yours.
-</p>
+<h1>Your matches</h1>
 
 <%# Only logged-in users can reach this page, so currentUser is always set %>
-<p class="notice">You are logged in as <%= currentUser.name %>.</p>
+<p class="lead">
+  Welcome, <%= currentUser.name %>. These students' skills, interests and aims
+  fit yours best, from either course.
+</p>
+
+<% if (matches.length === 0) { %>
+  <%# PRD 4.3: when nobody qualifies, say so. Never invent a match. %>
+  <p class="notice">
+    No matches yet. Matches appear when another student has a skill you are
+    looking for, the same aims as you, or a shared interest.
+  </p>
+<% } else { %>
+  <%# An ordered list (ol), because the order means something: best first %>
+  <ol class="match-list">
+    <% for (const match of matches) { %>
+      <li class="match-card">
+        <h2>
+          <%# Links to the person's profile page (feature 02) %>
+          <a href="/profile/<%= match.id %>"><%= match.name %></a>
+        </h2>
+        <p class="match-meta">
+          <%# A user may have no course; show only what we know %>
+          <% if (match.course) { %><%= match.course %> &middot; <% } %>
+          <%= match.score %> <%= match.score === 1 ? 'point' : 'points' %>
+        </p>
+        <%# Why they match: one line for each thing that scored %>
+        <ul class="match-reasons">
+          <% for (const reason of match.reasons) { %>
+            <li><%= reason %></li>
+          <% } %>
+        </ul>
+      </li>
+    <% } %>
+  </ol>
+<% } %>
 
 <%- include('partials/footer') %>
