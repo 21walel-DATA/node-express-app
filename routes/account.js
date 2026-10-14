@@ -1,12 +1,15 @@
 // routes/account.js
 // Routes for feature 06, the Account page (see specs/06-account.md).
-// The page, saving name and email, and changing the password. Deleting the
-// account comes in the next step.
+// Part A: the page, saving name and email, and changing the password.
+// Part B: deleting the account.
 
 const express = require('express');
 // bcryptjs checks a typed password against the scrambled (hashed) one
 const bcrypt = require('bcryptjs');
 const db = require('../db');
+// Walied's shared "delete a user" function (feature 05). The admin pages
+// use it too, so both ways of deleting remove exactly the same things.
+const { deleteUser } = require('../accounts');
 
 const router = express.Router();
 
@@ -181,6 +184,46 @@ router.post('/account/password', async (req, res) => {
 
   // Post/Redirect/Get, with the "saved" message
   res.redirect('/account?saved=password');
+});
+
+// 4. DELETE MY ACCOUNT (Part B): confirmed by typing the password.
+// Always deletes the LOGGED-IN user. Any id the form sends is ignored.
+// "next" hands an unexpected error to Express, which shows an error page.
+router.post('/account/delete', async (req, res, next) => {
+  const userId = res.locals.currentUser.id;
+  const body = req.body || {};
+  const password = String(body.password || '');
+
+  // A wrong (or missing) password deletes nothing
+  if (!(await isCurrentPassword(userId, password))) {
+    return renderAccount(res, {
+      errors: ['Your password is incorrect. Your account has not been deleted.'],
+      status: 400,
+    });
+  }
+
+  // Removes the account and, through the database's ON DELETE CASCADE,
+  // their profile ticks, connection requests and conversations. It also
+  // deletes their photo file (see accounts.js).
+  deleteUser(userId);
+
+  // Log them out, the same way the Log out button does: throw away the
+  // session, and tell the browser to forget its cookie
+  req.session.destroy((err) => {
+    if (err) {
+      return next(err);
+    }
+    res.clearCookie('connect.sid');
+
+    // Nobody is logged in any more, so the header must not show the old
+    // name or the logged-in links
+    res.locals.currentUser = null;
+
+    // The goodbye page (decision 3). It is shown straight away rather
+    // than redirected to, because it lives behind the login check, and
+    // they are no longer logged in.
+    res.render('account-deleted');
+  });
 });
 
 // Share the router with app.js

@@ -357,3 +357,100 @@ test('a logged-out visitor cannot change a password', async () => {
   assert.strictEqual(response.status, 302);
   assert.strictEqual(response.headers.location, '/login');
 });
+
+// ---------------------------------------------------------
+// 4. DELETING THE ACCOUNT (Part B)
+// ---------------------------------------------------------
+
+// Does a user with this id still exist?
+function userExists(userId) {
+  return db.prepare('SELECT id FROM users WHERE id = ?').get(userId) !== undefined;
+}
+
+test('the Account page has a labelled "Delete my account" form', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+
+  const response = await agent.get('/account');
+
+  assert.match(response.text, /<form method="post" action="\/account\/delete"/);
+  assert.match(response.text, /<label for="delete_password">Password<\/label>/);
+  assert.match(response.text, /Delete my account<\/button>/);
+});
+
+test('deleting with the right password removes the account and logs the user out', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const { email } = getSaved(agent.user.id);
+  // Something that belongs to them: a connection request they sent
+  const other = createUser({ setupComplete: true });
+  db.prepare(
+    "INSERT INTO connection_requests (sender_id, receiver_id, status) VALUES (?, ?, 'accepted')"
+  ).run(agent.user.id, other.id);
+
+  const response = await agent.post('/account/delete').type('form').send({ password: TEST_PASSWORD });
+
+  // The goodbye page (decision 3), shown as logged out
+  assert.strictEqual(response.status, 200);
+  assert.match(response.text, /Your account has been deleted\./);
+  assert.match(response.text, /href="\/login"/);
+
+  // The account and their request are gone
+  assert.ok(!userExists(agent.user.id), 'the user row is gone');
+  const requests = db
+    .prepare('SELECT COUNT(*) AS total FROM connection_requests WHERE sender_id = ?')
+    .get(agent.user.id).total;
+  assert.strictEqual(requests, 0);
+
+  // Logged out: the same browser is sent to the login page
+  const after = await agent.get('/account');
+  assert.strictEqual(after.status, 302);
+  assert.strictEqual(after.headers.location, '/login');
+
+  // And they cannot log in again
+  assert.ok(!(await canLogIn(email, TEST_PASSWORD)), 'the deleted account cannot log in');
+});
+
+test('deleting with a wrong or missing password deletes nothing', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+
+  const wrong = await agent
+    .post('/account/delete')
+    .type('form')
+    .send({ password: 'not-the-password' });
+  const missing = await agent.post('/account/delete').type('form').send({});
+
+  // 400 is the HTTP status code for "Bad Request"
+  assert.strictEqual(wrong.status, 400);
+  assert.match(wrong.text, /Your password is incorrect\. Your account has not been deleted\./);
+  assert.strictEqual(missing.status, 400);
+  assert.ok(userExists(agent.user.id), 'the account is still there');
+
+  // Still logged in
+  const page = await agent.get('/account');
+  assert.strictEqual(page.status, 200);
+});
+
+test('deleting only ever deletes the logged-in user, whatever id the form sends', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const other = createUser({ setupComplete: true });
+
+  await agent
+    .post('/account/delete')
+    .type('form')
+    .send({ password: TEST_PASSWORD, user_id: other.id, id: other.id });
+
+  assert.ok(userExists(other.id), 'the other account is still there');
+  assert.ok(!userExists(agent.user.id), 'only the logged-in account was deleted');
+});
+
+test('a logged-out visitor cannot delete any account', async () => {
+  const other = createUser({ setupComplete: true });
+
+  const response = await request(app)
+    .post('/account/delete')
+    .type('form')
+    .send({ password: TEST_PASSWORD, user_id: other.id });
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/login');
+  assert.ok(userExists(other.id));
+});

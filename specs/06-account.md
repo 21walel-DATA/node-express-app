@@ -119,6 +119,11 @@ that if time runs out, Part B can be cut (roadmap cut order, item 2).
    changed." The user stays logged in. **Part A is complete.** Other
    browsers where the user is logged in stay logged in too; logging those
    out is not in this sprint.
+4. Delete my account. **Done. Part B is complete.** A wrong or missing
+   password: "Your password is incorrect. Your account has not been
+   deleted." The right one uses `deleteUser`, logs the user out (the same
+   way as Log out) and shows the goodbye page straight away, because it
+   sits behind the login check.
 
 ## Open questions
 

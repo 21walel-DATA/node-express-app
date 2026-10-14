@@ -86,6 +86,20 @@
   <button type="submit" class="button">Change password</button>
 </form>
 
-<%# Deleting the account comes in build step 4 %>
+<%# PART B: delete my account. The password box confirms it really is
+    the account owner, and that it is not a click by mistake. %>
+<h2>Delete my account</h2>
+<p>This removes your account, your profile, your connection requests, your conversations and your photo. <strong>It cannot be undone.</strong></p>
+<form method="post" action="/account/delete" class="form">
+  <div class="form-field">
+    <label for="delete_password">Password</label>
+    <p class="hint" id="delete-password-hint">Type your password to confirm.</p>
+    <input type="password" id="delete_password" name="password"
+      maxlength="72" autocomplete="current-password"
+      aria-describedby="delete-password-hint" required>
+  </div>
+
+  <button type="submit" class="button button-danger">Delete my account</button>
+</form>
 
 <%- include('partials/footer') %>
