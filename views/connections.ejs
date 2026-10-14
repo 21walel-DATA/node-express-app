@@ -1,0 +1,88 @@
+<%# views/connections.ejs
+    The Connections page, at /connections. routes/connections.js passes in
+    three lists of people (id, name, course):
+      received   waiting requests sent TO the logged-in user (each also
+                 has requestId, for the Accept and Decline buttons)
+      sent       requests the logged-in user sent (waiting or declined)
+      connected  accepted requests, whoever asked (each also has
+                 requestId, which is the conversation's number)
+    Each list is a section with an id, so the tests can check that a name
+    is in the right list. %>
+
+<%- include('partials/header', { title: 'My connections' }) %>
+
+<h1>My connections</h1>
+
+<% if (received.length === 0 && sent.length === 0 && connected.length === 0) { %>
+  <%# Nothing at all yet: point the user to their matches %>
+  <p>No connections yet. <a href="/">Find people on your dashboard</a> and send them a request from their profile.</p>
+
+<% } else { %>
+
+  <section id="received" aria-labelledby="received-heading">
+    <h2 id="received-heading">Requests to you</h2>
+    <% if (received.length === 0) { %>
+      <p>None right now.</p>
+    <% } else { %>
+      <ul class="person-list">
+        <% for (const person of received) { %>
+          <li>
+            <a href="/profile/<%= person.id %>"><%= person.name %></a>
+            <% if (person.course) { %><span class="person-course"><%= person.course %></span><% } %>
+            <%# Two small forms, because each button changes data.
+                aria-label adds the name, so a screen reader says
+                "Accept Sam Taylor" rather than just "Accept". %>
+            <span class="person-actions">
+              <form method="post" action="/connections/<%= person.requestId %>/accept">
+                <button type="submit" class="button" aria-label="Accept <%= person.name %>">Accept</button>
+              </form>
+              <form method="post" action="/connections/<%= person.requestId %>/decline">
+                <button type="submit" class="button button-secondary" aria-label="Decline <%= person.name %>">Decline</button>
+              </form>
+            </span>
+          </li>
+        <% } %>
+      </ul>
+    <% } %>
+  </section>
+
+  <section id="sent" aria-labelledby="sent-heading">
+    <h2 id="sent-heading">Requests you sent</h2>
+    <% if (sent.length === 0) { %>
+      <p>None right now.</p>
+    <% } else { %>
+      <ul class="person-list">
+        <% for (const person of sent) { %>
+          <%# Waiting and declined both just say "Waiting" (decision 2) %>
+          <li>
+            <a href="/profile/<%= person.id %>"><%= person.name %></a>
+            <% if (person.course) { %><span class="person-course"><%= person.course %></span><% } %>
+            <span class="person-status">Waiting</span>
+          </li>
+        <% } %>
+      </ul>
+    <% } %>
+  </section>
+
+  <section id="connected" aria-labelledby="connected-heading">
+    <h2 id="connected-heading">Your connections</h2>
+    <% if (connected.length === 0) { %>
+      <p>None yet.</p>
+    <% } else { %>
+      <ul class="person-list">
+        <% for (const person of connected) { %>
+          <li>
+            <a href="/profile/<%= person.id %>"><%= person.name %></a>
+            <% if (person.course) { %><span class="person-course"><%= person.course %></span><% } %>
+            <%# requestId is also the conversation's number. aria-label
+                makes a screen reader say whose conversation it is. %>
+            <a class="person-actions" href="/conversations/<%= person.requestId %>" aria-label="Open conversation with <%= person.name %>">Open conversation</a>
+          </li>
+        <% } %>
+      </ul>
+    <% } %>
+  </section>
+
+<% } %>
+
+<%- include('partials/footer') %>

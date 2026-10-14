@@ -168,7 +168,7 @@ The five brief essentials are never cut, only simplified.
 - [x] 01 Registration and login
 - [x] 02 Profiles
 - [x] 03 Matching
-- [ ] 04 Messaging
+- [x] 04 Messaging
 - [ ] 05 Admin
 - [ ] 06 Account page (A: change details, B: delete account)
 - [ ] 07 Photo upload

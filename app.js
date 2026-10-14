@@ -116,6 +116,10 @@ const { requireSetup } = require('./middleware/setup');
 app.use(requireSetup);
 const profileRoutes = require('./routes/profile');
 app.use('/', profileRoutes);
+// FEATURE 04 (Koulla): connection requests and messages. Below the gate,
+// so only users who finished setup can connect.
+const connectionRoutes = require('./routes/connections');
+app.use('/', connectionRoutes);
 
 // LOGGED-IN PAGES
 app.use('/', homeRoutes);
