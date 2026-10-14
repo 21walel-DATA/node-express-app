@@ -110,6 +110,11 @@ app.use('/admin', requireAdmin, adminRoutes);
 
 // FEATURE 02 (Koulla): the "finish your profile setup" gate and the profile
 // routes go here, directly after the login check.
+// The gate comes first, so it also guards the profile pages below it.
+const { requireSetup } = require('./middleware/setup');
+app.use(requireSetup);
+const profileRoutes = require('./routes/profile');
+app.use('/', profileRoutes);
 
 // LOGGED-IN PAGES
 app.use('/', homeRoutes);
