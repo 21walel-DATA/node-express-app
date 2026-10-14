@@ -5,9 +5,10 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js",
+    "dev": "nodemon --env-file-if-exists=.env index.js",
     "test": "node --test",
-    "seed": "node scripts/seed.js"
+    "seed": "node scripts/seed.js",
+    "create-admin": "node scripts/create-admin.js"
   },
   "repository": {
     "type": "git",

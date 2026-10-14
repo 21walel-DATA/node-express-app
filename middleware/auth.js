@@ -49,4 +49,20 @@ function requireLogin(req, res, next) {
   next();
 }
 
-module.exports = { loadCurrentUser, requireLogin };
+// 3. REQUIRE ADMIN: Stop anyone who is not an admin (PRD section 8:
+// "admin pages can be opened only by admins").
+// Must run after requireLogin, so we already know someone is logged in.
+// app.js switches it on for every address that starts with /admin.
+function requireAdmin(req, res, next) {
+  // is_admin is 1 for admins and 0 for everyone else
+  if (res.locals.currentUser.is_admin !== 1) {
+    // 403 is the HTTP status code for "Forbidden": we know who you are,
+    // but you are not allowed here. The route never runs.
+    return res.status(403).render('forbidden');
+  }
+
+  // An admin: let the request carry on to the admin route
+  next();
+}
+
+module.exports = { loadCurrentUser, requireLogin, requireAdmin };

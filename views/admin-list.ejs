@@ -1,0 +1,87 @@
+<%# views/admin-list.ejs
+    One admin list page, such as Courses or Skills. The same page is used
+    for every list. routes/admin.js passes in:
+      list           the list's settings from LISTS (title, path, singular,
+                     and note and parent when the list has them)
+      rows           the entries, each with an id and a name (and
+                     parentName, e.g. the skill's category, for skills)
+      parentOptions  the choices for the parent dropdown (e.g. every
+                     category); empty for a list without a parent
+      errors         messages to show when an add or remove was refused
+      values         what the admin typed or chose last time ({ name,
+                     parentId }), so the add form can be refilled %>
+<%- include('partials/header', { title: list.title }) %>
+
+<p><a href="/admin">&larr; Admin</a></p>
+
+<h1><%= list.title %></h1>
+
+<% if (list.note) { %>
+  <p class="hint"><%= list.note %></p>
+<% } %>
+
+<%# role="alert" makes a screen reader read the box out straight away %>
+<% if (errors.length > 0) { %>
+  <div class="error-box" role="alert">
+    <p>That did not work:</p>
+    <ul>
+      <% errors.forEach((error) => { %>
+        <li><%= error %></li>
+      <% }) %>
+    </ul>
+  </div>
+<% } %>
+
+<%# The add form sends the new entry to POST /admin/<list path> %>
+<form method="post" action="/admin/<%= list.path %>" class="form admin-add">
+  <div class="form-field">
+    <label for="name">New <%= list.singular %></label>
+    <input type="text" id="name" name="name" value="<%= values.name || '' %>" maxlength="100" required>
+  </div>
+
+  <%# Only lists with a parent (skills) get the dropdown %>
+  <% if (list.parent) { %>
+    <div class="form-field">
+      <label for="parent_id"><%= list.parent.label %></label>
+      <select id="parent_id" name="parent_id" required>
+        <%# The empty first choice makes the admin pick one on purpose %>
+        <option value="">Choose&hellip;</option>
+        <% for (const option of parentOptions) { %>
+          <%# "selected" refills the choice after a refused add %>
+          <option value="<%= option.id %>" <%= option.id === values.parentId ? 'selected' : '' %>>
+            <%= option.name %>
+          </option>
+        <% } %>
+      </select>
+    </div>
+  <% } %>
+
+  <button type="submit" class="button">Add</button>
+</form>
+
+<% if (rows.length === 0) { %>
+  <p class="notice">There are no <%= list.title.toLowerCase() %> yet.</p>
+<% } else { %>
+  <ul class="admin-rows">
+    <% for (const row of rows) { %>
+      <li>
+        <span>
+          <%= row.name %>
+          <%# For skills, show the category next to the name, in grey %>
+          <% if (list.parent) { %>
+            <span class="hint">&middot; <%= row.parentName || 'No category' %></span>
+          <% } %>
+        </span>
+        <%# Removing is a form with a button, because it changes data
+            (see the remove route in routes/admin.js).
+            aria-label gives screen readers the full meaning, "Remove Fintech",
+            since every button on its own just says "Remove". %>
+        <form method="post" action="/admin/<%= list.path %>/<%= row.id %>/remove">
+          <button type="submit" class="link-button" aria-label="Remove <%= row.name %>">Remove</button>
+        </form>
+      </li>
+    <% } %>
+  </ul>
+<% } %>
+
+<%- include('partials/footer') %>

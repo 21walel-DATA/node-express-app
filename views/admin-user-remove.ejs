@@ -1,0 +1,24 @@
+<%# views/admin-user-remove.ejs
+    The "are you sure?" page before an admin removes an account.
+    routes/admin.js passes in "user", with the account's id and name. %>
+<%- include('partials/header', { title: 'Remove account' }) %>
+
+<p><a href="/admin/users">&larr; Users</a></p>
+
+<h1>Remove <%= user.name %>'s account?</h1>
+
+<div class="error-box">
+  <p>This cannot be undone.</p>
+  <ul>
+    <li>Their profile, connection requests and conversations are deleted.</li>
+    <li>They can no longer log in, and they no longer appear in anyone's matches.</li>
+  </ul>
+</div>
+
+<%# Only this button really removes the account (a POST request) %>
+<form method="post" action="/admin/users/<%= user.id %>/remove" class="admin-confirm">
+  <button type="submit" class="button">Remove account</button>
+  <a href="/admin/users">Cancel</a>
+</form>
+
+<%- include('partials/footer') %>

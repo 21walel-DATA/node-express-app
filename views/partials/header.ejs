@@ -31,6 +31,10 @@
           <%# The user's own profile page (feature 02). It is inside this
               "if", so it only shows when someone is logged in. %>
           <a href="/profile/<%= currentUser.id %>">My profile</a>
+          <%# Only admins see the link to the admin pages %>
+          <% if (currentUser.is_admin === 1) { %>
+            <a href="/admin">Admin</a>
+          <% } %>
           <%# Logging out is a form, not a link, because it must be a POST
               request (see the logout route in routes/auth.js) %>
           <form method="post" action="/logout">
