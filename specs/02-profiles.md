@@ -2,8 +2,8 @@
 
 **Owner:** Koulla
 **Status:** plan agreed by Koulla on 13 October 2026. Walied's answers about
-feature 01 were added on 14 October 2026. Waiting for feature 01 to be merged
-before the forms are built.
+feature 01 were added on 14 October 2026. Feature 01 is merged, so the profile
+forms are being built (branch `02-profile-forms`).
 See `PRD.md` section 4.2 and `roadmap.md` feature 02.
 
 A spec says how one feature should behave and how we will check it.
@@ -17,7 +17,7 @@ A spec says how one feature should behave and how we will check it.
   shared demo password (there is a `TODO` in the file).
 - Still to agree with Walied: how the seed is run on Railway.
 
-## Part 2: Profile forms (not started)
+## Part 2: Profile forms (being built)
 
 ### Pages
 
@@ -120,21 +120,29 @@ One small step at a time, test first for each.
 - No "Edit profile" link in the header. The profile page already has an
   "Edit my profile" link on the user's own page.
 
-### Waiting for feature 01
+### Feature 01 is merged
 
-Checked on 14 October 2026: Walied's feature 01 is in pull request #3
-(`01-registration-login`). It is **open, not merged**, so it is not in this app
-folder yet. Reading the branch on GitHub shows it has the agreed pieces:
-`requireLogin` and `loadCurrentUser` in `middleware/auth.js`, the form reader in
-`app.js`, `tests/loginHelper.js`, and the marked place for Koulla's lines in
-`app.js`. `currentUser` includes `setup_complete`, which the gate can use.
+Checked on 14 October 2026: Walied's feature 01 (pull request #3) and the
+dashboard (feature 03) are merged into `main` and are in this app folder. All
+65 tests pass. The agreed pieces are there: `requireLogin` and
+`loadCurrentUser` in `middleware/auth.js`, the form reader in `app.js`,
+`tests/loginHelper.js`, and the marked place for Koulla's lines in `app.js`.
+`currentUser` includes `setup_complete`, which the gate can use. Walied has also
+added the "My profile" header link, and the dashboard links each match to
+`/profile/<id>`.
 
 The privacy page, login and logout are plugged in **before** `requireLogin`, and
 the public files before that, so a gate placed after `requireLogin` lets them
 through on its own. The test above still checks this.
 
-What must happen before the forms are built:
+### Choices for the profile page (Koulla, 14 October 2026)
 
-1. Pull request #3 is merged into `main`.
-2. The new `main` is brought into this app folder.
-3. `npm install` and `npm test` pass here.
+- "Profile not found" is sent with the code 404, the web's standard
+  "not found" code. This includes an address that is not a number, such as
+  `/profile/abc`.
+- The initials are the first letter of the first and last names
+  ("Sam Taylor" gives ST, "Cher" gives C).
+- The ticks are shown as simple lists, with skills grouped under their
+  category. Styling comes in build step 5.
+- A user can see their own unfinished profile. The gate (build step 4) deals
+  with unfinished users.

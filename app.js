@@ -101,6 +101,8 @@ app.use(requireLogin);
 
 // FEATURE 02 (Koulla): the "finish your profile setup" gate and the profile
 // routes go here, directly after the login check.
+const profileRoutes = require('./routes/profile');
+app.use('/', profileRoutes);
 
 // LOGGED-IN PAGES
 app.use('/', homeRoutes);
