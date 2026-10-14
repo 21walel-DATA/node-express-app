@@ -1,8 +1,9 @@
 # Spec 02: Profiles
 
 **Owner:** Koulla
-**Status:** plan agreed by Koulla on 13 October 2026. Waiting for feature 01
-(registration and login) to be merged before the forms are built.
+**Status:** plan agreed by Koulla on 13 October 2026. Walied's answers about
+feature 01 were added on 14 October 2026. Waiting for feature 01 to be merged
+before the forms are built.
 See `PRD.md` section 4.2 and `roadmap.md` feature 02.
 
 A spec says how one feature should behave and how we will check it.
@@ -57,7 +58,7 @@ form whenever they open any other page.
 
 | Kind | Check |
 |---|---|
-| Normal | A valid form saves, marks setup as finished and shows the user's profile |
+| Normal | A valid form saves, marks setup as finished and sends the user to `/` |
 | Normal | Two or more "looking for" ticks are all saved |
 | Normal | A profile page shows the name and the ticks, and not the email |
 | Bad input | A missing required tick is refused with a clear message, nothing is saved, and the other ticks stay ticked |
@@ -65,6 +66,7 @@ form whenever they open any other page.
 | Bad input | A skill, interest or "looking for" number that is not in the lists is refused |
 | No permission | A logged-out visitor is sent to the login page |
 | No permission | A new user who opens another page is sent to the form |
+| No permission | A new user who has not finished setup can still open the privacy notice and log out |
 | No permission | A user cannot change someone else's profile |
 | No results | A profile number that does not exist shows "Profile not found" |
 
@@ -80,8 +82,8 @@ One small step at a time, test first for each.
 
 ### Files
 
-- New: `routes/profile.js`, `views/profile.ejs`, `views/profile-form.ejs`,
-  `tests/profile.test.js`.
+- New: `routes/profile.js`, `middleware/setup.js` (the gate),
+  `views/profile.ejs`, `views/profile-form.ejs`, `tests/profile.test.js`.
 - Small changes: `app.js`, `public/style.css`.
 - No new library.
 
@@ -91,13 +93,48 @@ One small step at a time, test first for each.
 - An unfinished profile shows "Profile not found" to other users.
 - One form is used for both setup and editing.
 
-### Open questions for Walied (they depend on feature 01)
+### Agreed with Walied (14 October 2026)
 
-1. How does a page know who is logged in, and what is the "must be logged in" check
-   called?
-2. Is reading of form posts (`express.urlencoded`) switched on in `app.js`?
-3. Is there a test helper that logs a made-up user in?
-4. Who builds the gate? It sits next to the login check, and both of us would be
-   editing `app.js` and `public/style.css`.
-5. What is the dashboard's address? Until feature 03 exists, the suggestion is to send
-   the user to their own profile page after saving.
+- The login middleware puts the logged-in user's row in
+  `res.locals.currentUser`. The login check is called `requireLogin` and lives in
+  `middleware/auth.js`.
+- `app.js` reads submitted form fields with
+  `express.urlencoded({ extended: false })`. A checkbox field can arrive as one
+  string or as an array, so the route must always turn it into an array.
+- Walied adds `tests/loginHelper.js` in his feature 01 pull request (#3). Tests
+  call `loginAs(app, { setupComplete: true })` (or `false` for a new user). It
+  returns a Supertest agent that keeps the login cookie, like a browser does.
+- Koulla owns the setup gate. It will live in `middleware/setup.js`. In `app.js`,
+  Walied will leave a marked place after `requireLogin`; Koulla will add only her
+  own lines there. The gate must allow the privacy page and public files through.
+- In `public/style.css`, each person adds new rules at the bottom under a
+  clearly named heading. Walied owns `views/partials/header.ejs`; Koulla will tell
+  him which profile links the header needs.
+- After a successful setup, send the student to `/`. This is the home page and
+  will become the dashboard when Feature 03 is added.
+
+### Links for Walied's header (Koulla, 14 October 2026)
+
+- One link only: **"My profile"**, pointing to `/profile/<id>` of the logged-in
+  user. Show it only when someone is logged in.
+- No "Edit profile" link in the header. The profile page already has an
+  "Edit my profile" link on the user's own page.
+
+### Waiting for feature 01
+
+Checked on 14 October 2026: Walied's feature 01 is in pull request #3
+(`01-registration-login`). It is **open, not merged**, so it is not in this app
+folder yet. Reading the branch on GitHub shows it has the agreed pieces:
+`requireLogin` and `loadCurrentUser` in `middleware/auth.js`, the form reader in
+`app.js`, `tests/loginHelper.js`, and the marked place for Koulla's lines in
+`app.js`. `currentUser` includes `setup_complete`, which the gate can use.
+
+The privacy page, login and logout are plugged in **before** `requireLogin`, and
+the public files before that, so a gate placed after `requireLogin` lets them
+through on its own. The test above still checks this.
+
+What must happen before the forms are built:
+
+1. Pull request #3 is merged into `main`.
+2. The new `main` is brought into this app folder.
+3. `npm install` and `npm test` pass here.
