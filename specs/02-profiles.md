@@ -2,8 +2,10 @@
 
 **Owner:** Koulla
 **Status:** plan agreed by Koulla on 13 October 2026. Walied's answers about
-feature 01 were added on 14 October 2026. Feature 01 is merged, so the profile
-forms are being built (branch `02-profile-forms`).
+feature 01 were added on 14 October 2026. **Built** on 14 October 2026 (branch
+`02-profile-forms`): all five build steps done, all tests pass, and Koulla
+checked the pages by eye (light and dark mode, phone width, keyboard only).
+Waiting for Walied's review.
 See `PRD.md` section 4.2 and `roadmap.md` feature 02.
 
 A spec says how one feature should behave and how we will check it.
@@ -17,7 +19,7 @@ A spec says how one feature should behave and how we will check it.
   shared demo password (there is a `TODO` in the file).
 - Still to agree with Walied: how the seed is run on Railway.
 
-## Part 2: Profile forms (being built)
+## Part 2: Profile forms (done)
 
 ### Pages
 
@@ -74,17 +76,20 @@ form whenever they open any other page.
 
 One small step at a time, test first for each.
 
-1. Profile page (can be checked with the made-up students).
-2. Show the form with the lists from the database.
-3. Save the form, with the "at least one" rules.
-4. The gate.
-5. Styles for the form and the initials circle.
+1. Profile page (can be checked with the made-up students). **Done.**
+2. Show the form with the lists from the database. **Done.**
+3. Save the form, with the "at least one" rules. **Done.**
+4. The gate. **Done.**
+5. Styles for the form and the initials circle. **Done.**
 
 ### Files
 
 - New: `routes/profile.js`, `middleware/setup.js` (the gate),
-  `views/profile.ejs`, `views/profile-form.ejs`, `tests/profile.test.js`.
-- Small changes: `app.js`, `public/style.css`.
+  `views/profile.ejs`, `views/profile-form.ejs`, `tests/profile.test.js`,
+  `tests/profile-empty-lists.test.js`.
+- Small changes: `app.js` (Koulla's marked place only), `public/style.css`
+  (section 8 at the bottom only), and Walied's `tests/home.test.js` and
+  `tests/guard.test.js` (7 `loginAs(...)` lines, see "The setup gate").
 - No new library.
 
 ### Decisions (Koulla, 13 October 2026)
@@ -142,8 +147,15 @@ through on its own. The test above still checks this.
   `/profile/abc`.
 - The initials are the first letter of the first and last names
   ("Sam Taylor" gives ST, "Cher" gives C).
-- The ticks are shown as simple lists, with skills grouped under their
-  category. Styling comes in build step 5.
+- The ticks are shown with skills grouped under their category. Since build
+  step 5 each list shows its ticks as small rounded tags in a row.
+- **Circle colours** (build step 5, option b): each person's initials circle
+  gets one of 5 colours, picked from their id number (`id % 5 + 1`), so the
+  same person always has the same colour. Light mode uses darker colours with
+  white initials; dark mode uses lighter colours with dark initials. A test
+  in `tests/profile.test.js` checks that every pair passes the 4.5 contrast
+  rule (PRD section 7). Red was swapped for burnt orange so a circle never
+  looks like an error message.
 - ~~A user can see their own unfinished profile.~~ Changed by Koulla on
   14 October 2026 (build step 4): the gate sends a user who has not finished
   setup to the form from **every** page except the form itself, including
