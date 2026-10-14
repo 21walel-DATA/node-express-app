@@ -495,3 +495,25 @@ test('a logged-out visitor cannot accept a request', async () => {
   assert.strictEqual(response.headers.location, '/login');
   assert.strictEqual(getStatus(requestId), 'pending');
 });
+
+// ---------------------------------------------------------
+// 5. THE HEADER LINK (added with Walied's agreement, final live check #20)
+// ---------------------------------------------------------
+
+test('the header has a Connections link for a logged-in user', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+
+  const response = await agent.get('/');
+
+  // Only look inside the header's <nav>, so a link elsewhere on the page
+  // does not count
+  const nav = response.text.split('<nav')[1].split('</nav>')[0];
+  assert.match(nav, /<a href="\/connections">Connections<\/a>/);
+});
+
+test('the header has no Connections link for a logged-out visitor', async () => {
+  const response = await request(app).get('/login');
+
+  const nav = response.text.split('<nav')[1].split('</nav>')[0];
+  assert.doesNotMatch(nav, /\/connections/);
+});
