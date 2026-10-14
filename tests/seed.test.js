@@ -5,6 +5,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert');
+const bcrypt = require('bcryptjs');
 
 // Load the helper first so the throwaway in-memory database is used
 require('./helpers');
@@ -105,4 +106,44 @@ test('running the seed twice does not make copies', () => {
 
   // deepStrictEqual compares two lists item by item
   assert.deepStrictEqual(after, before);
+});
+
+// 5. NO PERMISSION: without a demo password, nobody can log in as a made-up student
+test('without a password, no password works for the made-up students', () => {
+  // The seed at the top of this file was run with no password
+  const users = db.prepare('SELECT name, password_hash FROM users').all();
+
+  for (const user of users) {
+    // bcrypt.compareSync is the same check the login route makes. It
+    // answers true only when the typed password matches the hash.
+    assert.strictEqual(
+      bcrypt.compareSync('any-guess', user.password_hash),
+      false,
+      `someone could log in as ${user.name}`
+    );
+  }
+});
+
+// 6. NORMAL CASE: with a demo password, every made-up student can log in
+test('with a password, every made-up student can log in with it', () => {
+  // INSERT OR IGNORE never changes a student who is already there, so
+  // start again. ON DELETE CASCADE also removes everything they ticked.
+  db.prepare('DELETE FROM users').run();
+
+  seed('demo-password');
+
+  const users = db.prepare('SELECT name, password_hash FROM users').all();
+  assert.strictEqual(users.length, 8);
+
+  for (const user of users) {
+    // The real password must never be stored, only its hash
+    assert.notStrictEqual(user.password_hash, 'demo-password');
+
+    // The right password works and a wrong one does not
+    assert.ok(
+      bcrypt.compareSync('demo-password', user.password_hash),
+      `${user.name} cannot log in with the demo password`
+    );
+    assert.strictEqual(bcrypt.compareSync('wrong-password', user.password_hash), false);
+  }
 });
