@@ -330,3 +330,233 @@ test('a logged-out visitor cannot see the profile form', async () => {
   assert.strictEqual(response.status, 302);
   assert.strictEqual(response.headers.location, '/login');
 });
+
+// ---------------------------------------------------------
+// SAVING THE PROFILE FORM: POST /profile/edit
+// ---------------------------------------------------------
+
+// One more interest, so a test can tick two
+db.prepare('INSERT OR IGNORE INTO interests (name) VALUES (?)').run('Gaming');
+
+// Looks up a "looking for" option's id by its code, e.g. 'cofounder'
+function optionId(code) {
+  return db.prepare('SELECT id FROM looking_for_options WHERE code = ?').get(code).id;
+}
+
+// A form that passes every rule. A test can change any field, e.g.
+// validForm({ bio: 'Hello' }) or validForm({ interests: [] }).
+// "...changes" copies the test's changes over the top of the defaults.
+function validForm(changes = {}) {
+  return {
+    looking_for: [optionId('cofounder')],
+    skills_has: [skillId('Sales')],
+    skills_wants: [skillId('JavaScript')],
+    interests: [interestId('Fintech')],
+    bio: 'I love selling things.',
+    business_idea: 'An app for local markets.',
+    ...changes,
+  };
+}
+
+// Sends a form the way a real browser does: a list becomes the same name
+// repeated, e.g. looking_for=1&looking_for=4. An empty list sends nothing,
+// just like a group of tick boxes with none ticked.
+function postForm(agent, fields) {
+  // URLSearchParams builds the "name=value&name=value" text a form sends
+  const body = new URLSearchParams();
+  for (const [name, value] of Object.entries(fields)) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        body.append(name, item);
+      }
+    } else {
+      body.append(name, value);
+    }
+  }
+  return agent.post('/profile/edit').type('form').send(body.toString());
+}
+
+// Reads one list of id numbers from the database, sorted smallest first,
+// so tests can compare lists easily
+function idList(sql, userId) {
+  return db
+    .prepare(sql)
+    .all(userId)
+    .map((row) => row.id)
+    .sort((a, b) => a - b);
+}
+
+// Reads back everything saved for a user, so tests can check the database
+function savedProfile(userId) {
+  const user = db
+    .prepare('SELECT bio, business_idea, setup_complete FROM users WHERE id = ?')
+    .get(userId);
+
+  return {
+    bio: user.bio,
+    businessIdea: user.business_idea,
+    setupComplete: user.setup_complete,
+    lookingFor: idList('SELECT option_id AS id FROM user_looking_for WHERE user_id = ?', userId),
+    skillsHas: idList("SELECT skill_id AS id FROM user_skills WHERE user_id = ? AND kind = 'has'", userId),
+    skillsWants: idList("SELECT skill_id AS id FROM user_skills WHERE user_id = ? AND kind = 'wants'", userId),
+    interests: idList('SELECT interest_id AS id FROM user_interests WHERE user_id = ?', userId),
+  };
+}
+
+// 19. NORMAL CASE: a valid form is saved and the user goes to the home page
+test('a valid form saves the profile, finishes setup and goes to /', async () => {
+  const agent = await loginAs(app);
+
+  const response = await postForm(agent, validForm());
+
+  // 302 is the HTTP status code for "go to this other address instead"
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/');
+  assert.deepStrictEqual(savedProfile(agent.user.id), {
+    bio: 'I love selling things.',
+    businessIdea: 'An app for local markets.',
+    setupComplete: 1,
+    lookingFor: [optionId('cofounder')],
+    skillsHas: [skillId('Sales')],
+    skillsWants: [skillId('JavaScript')],
+    interests: [interestId('Fintech')],
+  });
+});
+
+// 20. NORMAL CASE: several ticks in one list are all saved
+// (the browser sends them as a list)
+test('two or more ticks in a list are all saved', async () => {
+  const agent = await loginAs(app);
+  const twoOptions = [optionId('cofounder'), optionId('social')].sort((a, b) => a - b);
+
+  await postForm(
+    agent,
+    validForm({ looking_for: twoOptions, interests: [interestId('Fintech'), interestId('Gaming')] })
+  );
+
+  const saved = savedProfile(agent.user.id);
+  assert.deepStrictEqual(saved.lookingFor, twoOptions);
+  assert.strictEqual(saved.interests.length, 2);
+});
+
+// 21. NORMAL CASE: a single tick is saved (the browser sends it as plain
+// text, not as a list)
+test('a single tick in a list is saved', async () => {
+  const agent = await loginAs(app);
+
+  await postForm(agent, validForm({ interests: String(interestId('Gaming')) }));
+
+  assert.deepStrictEqual(savedProfile(agent.user.id).interests, [interestId('Gaming')]);
+});
+
+// 22. NORMAL CASE: saving again replaces the old answers
+test('saving again replaces the old ticks and text', async () => {
+  const agent = await loginAs(app);
+  await postForm(agent, validForm({ interests: [interestId('Fintech'), interestId('Gaming')] }));
+
+  // Untick Fintech, empty the bio, and type only spaces in the business idea
+  await postForm(agent, validForm({ interests: [interestId('Gaming')], bio: '', business_idea: '   ' }));
+
+  const saved = savedProfile(agent.user.id);
+  assert.deepStrictEqual(saved.interests, [interestId('Gaming')]);
+  // Empty, or only spaces, is saved as "nothing" (null)
+  assert.strictEqual(saved.bio, null);
+  assert.strictEqual(saved.businessIdea, null);
+});
+
+// 23. NORMAL CASE: exactly 500 characters is allowed, even with a new line
+test('a bio and business idea of exactly 500 characters are saved', async () => {
+  const agent = await loginAs(app);
+  // A browser sends a new line as two characters (\r\n) but counts it as
+  // one. 498 letters + one new line + 1 letter = 500, as the browser counts.
+  const withNewLine = 'a'.repeat(498) + '\r\n' + 'b';
+
+  const response = await postForm(agent, validForm({ bio: 'a'.repeat(500), business_idea: withNewLine }));
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(savedProfile(agent.user.id).bio.length, 500);
+});
+
+// 24. BAD INPUT: each list left empty is refused with its own message.
+// The same test runs four times, once for each list.
+const emptyListCases = [
+  { field: 'looking_for', message: 'Tick at least one thing you are looking for.' },
+  { field: 'skills_has', message: 'Tick at least one skill you have.' },
+  { field: 'skills_wants', message: 'Tick at least one skill you are looking for.' },
+  { field: 'interests', message: 'Tick at least one interest.' },
+];
+for (const { field, message } of emptyListCases) {
+  test(`an empty ${field} list is refused, nothing is saved, and the form is refilled`, async () => {
+    const agent = await loginAs(app);
+
+    // [field] means "the field whose name is in this variable"
+    const response = await postForm(agent, validForm({ [field]: [] }));
+
+    // 400 is the HTTP status code for "Bad Request"
+    assert.strictEqual(response.status, 400);
+    assert.match(response.text, new RegExp(message));
+
+    // Nothing was saved: no ticks, no bio, and setup is not finished
+    const saved = savedProfile(agent.user.id);
+    assert.strictEqual(saved.setupComplete, 0);
+    assert.deepStrictEqual(saved.lookingFor, []);
+    assert.strictEqual(saved.bio, null);
+
+    // The other answers are still filled in on the form. Fintech was sent
+    // every time except when the interests list is the empty one.
+    if (field !== 'interests') {
+      assert.match(response.text, new RegExp(`id="interest-${interestId('Fintech')}"[^>]*checked`));
+    }
+    assert.match(response.text, /<textarea id="bio"[^>]*>I love selling things\.<\/textarea>/);
+  });
+}
+
+// 25. BAD INPUT: 501 characters is one too many
+test('a bio or business idea of 501 characters is refused', async () => {
+  const agent = await loginAs(app);
+
+  const response = await postForm(agent, validForm({ bio: 'a'.repeat(501), business_idea: 'b'.repeat(501) }));
+
+  assert.strictEqual(response.status, 400);
+  assert.match(response.text, /Your bio must be 500 characters or fewer\./);
+  assert.match(response.text, /Your business idea must be 500 characters or fewer\./);
+  assert.strictEqual(savedProfile(agent.user.id).setupComplete, 0);
+});
+
+// 26. BAD INPUT: a tick that is not on the lists (someone changed what
+// their browser sends). The same test runs for a missing number and for
+// something that is not a number at all.
+for (const badValue of ['999999', 'abc']) {
+  test(`a tick of "${badValue}" that is not on the lists is refused`, async () => {
+    const agent = await loginAs(app);
+
+    const response = await postForm(agent, validForm({ skills_has: [skillId('Sales'), badValue] }));
+
+    assert.strictEqual(response.status, 400);
+    assert.match(response.text, /One of the ticks is not on the lists\. Please try again\./);
+    assert.deepStrictEqual(savedProfile(agent.user.id).skillsHas, []);
+  });
+}
+
+// 27. DENIED ACCESS: the form only ever changes the logged-in user
+test('sending another user\'s number with the form changes only your own profile', async () => {
+  const other = createUser({ setupComplete: true });
+  fillProfile(other.id);
+  const before = savedProfile(other.id);
+  const agent = await loginAs(app);
+
+  // Try to sneak the other person's id in, under a few likely names
+  await postForm(agent, validForm({ id: other.id, user_id: other.id, bio: 'Hacked!' }));
+
+  // The other person is untouched; only the sender's own profile changed
+  assert.deepStrictEqual(savedProfile(other.id), before);
+  assert.strictEqual(savedProfile(agent.user.id).bio, 'Hacked!');
+});
+
+// 28. DENIED ACCESS: a logged-out visitor cannot save a profile
+test('a logged-out visitor cannot save a profile', async () => {
+  const response = await postForm(request(app), validForm());
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/login');
+});

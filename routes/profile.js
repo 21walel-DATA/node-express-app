@@ -133,6 +133,76 @@ function getSavedValues(userId) {
   };
 }
 
+// The longest a bio or business idea may be (PRD section 4.2)
+const TEXT_MAX_LENGTH = 500;
+
+// Turns one group of tick boxes from the form into a list of numbers.
+// A browser sends nothing when no box is ticked, plain text ('3') when one
+// is ticked, and a list (['3', '7']) when several are. This always gives
+// back a list: [], [3] or [3, 7].
+// Text that is not a number (like 'abc') becomes NaN ("not a number"),
+// which the "is it on the list" check then refuses.
+function toIdList(value) {
+  if (value === undefined) {
+    return [];
+  }
+  const items = Array.isArray(value) ? value : [value];
+
+  // new Set(...) drops repeats, so the same tick cannot be saved twice
+  return [...new Set(items.map(Number))];
+}
+
+// Tidies a text box: a new line sent as \r\n counts as ONE character (the
+// same as the browser counts it), and spaces at both ends are removed.
+function cleanText(value) {
+  return String(value || '').replace(/\r\n/g, '\n').trim();
+}
+
+// Checks that every id is a real row. "statement" is a prepared query
+// that looks up one id, for example "SELECT id FROM skills WHERE id = ?".
+// .every() is true only if the check passes for ALL the ids.
+function allExist(statement, ids) {
+  return ids.every((id) => Number.isInteger(id) && statement.get(id) !== undefined);
+}
+
+// One prepared query for each list, used by allExist
+const findLookingFor = db.prepare('SELECT id FROM looking_for_options WHERE id = ?');
+const findSkill = db.prepare('SELECT id FROM skills WHERE id = ?');
+const findInterest = db.prepare('SELECT id FROM interests WHERE id = ?');
+
+// Saves a checked profile. db.transaction makes it "all or nothing": if any
+// line fails, every change is undone, so a profile is never half saved.
+const saveProfile = db.transaction((userId, profile) => {
+  // The texts, and setup is now finished.
+  // "|| null" saves an empty text as "nothing" (null).
+  db.prepare(
+    'UPDATE users SET bio = ?, business_idea = ?, setup_complete = 1 WHERE id = ?'
+  ).run(profile.bio || null, profile.businessIdea || null, userId);
+
+  // Wipe the old ticks, then add the new ones. This is the simplest way to
+  // make an unticked box disappear.
+  db.prepare('DELETE FROM user_looking_for WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM user_skills WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM user_interests WHERE user_id = ?').run(userId);
+
+  const addLookingFor = db.prepare('INSERT INTO user_looking_for (user_id, option_id) VALUES (?, ?)');
+  const addSkill = db.prepare('INSERT INTO user_skills (user_id, skill_id, kind) VALUES (?, ?, ?)');
+  const addInterest = db.prepare('INSERT INTO user_interests (user_id, interest_id) VALUES (?, ?)');
+
+  for (const id of profile.lookingFor) {
+    addLookingFor.run(userId, id);
+  }
+  for (const id of profile.skillsHas) {
+    addSkill.run(userId, id, 'has');
+  }
+  for (const id of profile.skillsWants) {
+    addSkill.run(userId, id, 'wants');
+  }
+  for (const id of profile.interests) {
+    addInterest.run(userId, id);
+  }
+});
+
 // ---------------------------------------------------------
 // PROFILE ROUTES
 // ---------------------------------------------------------
@@ -152,13 +222,86 @@ router.get('/profile/edit', (req, res) => {
     ...getFormLists(),
     // What to tick and fill in
     values: getSavedValues(userId),
-    // No problems to show yet. Step 3 (saving) fills this in when the
-    // form is refused.
+    // No problems to show: the form has not been sent yet
     errors: [],
   });
 });
 
-// 2. PROFILE PAGE: Show one person's profile.
+// 2. SAVE PROFILE: Check the sent form, then save it or show it again.
+// Like the form above, it always saves to the LOGGED-IN user. Any id the
+// browser sends is ignored, so nobody can change someone else's profile.
+router.post('/profile/edit', (req, res) => {
+  const userId = res.locals.currentUser.id;
+
+  // req.body holds the form fields. It is undefined if no form was sent,
+  // so fall back to an empty object to avoid a crash.
+  const body = req.body || {};
+
+  // Read every field into the same shape the form page uses
+  const profile = {
+    lookingFor: toIdList(body.looking_for),
+    skillsHas: toIdList(body.skills_has),
+    skillsWants: toIdList(body.skills_wants),
+    interests: toIdList(body.interests),
+    bio: cleanText(body.bio),
+    businessIdea: cleanText(body.business_idea),
+  };
+
+  // Collect every problem, so the person sees them all at once
+  const errors = [];
+
+  // Rule 1: at least one tick in each list
+  if (profile.lookingFor.length === 0) {
+    errors.push('Tick at least one thing you are looking for.');
+  }
+  if (profile.skillsHas.length === 0) {
+    errors.push('Tick at least one skill you have.');
+  }
+  if (profile.skillsWants.length === 0) {
+    errors.push('Tick at least one skill you are looking for.');
+  }
+  if (profile.interests.length === 0) {
+    errors.push('Tick at least one interest.');
+  }
+
+  // Rule 2: every tick is a real item from the lists.
+  // Never trust that the browser only sends the boxes we showed it.
+  const allTicksReal =
+    allExist(findLookingFor, profile.lookingFor) &&
+    allExist(findSkill, profile.skillsHas) &&
+    allExist(findSkill, profile.skillsWants) &&
+    allExist(findInterest, profile.interests);
+  if (!allTicksReal) {
+    errors.push('One of the ticks is not on the lists. Please try again.');
+  }
+
+  // Rule 3: the texts are not too long
+  if (profile.bio.length > TEXT_MAX_LENGTH) {
+    errors.push(`Your bio must be ${TEXT_MAX_LENGTH} characters or fewer.`);
+  }
+  if (profile.businessIdea.length > TEXT_MAX_LENGTH) {
+    errors.push(`Your business idea must be ${TEXT_MAX_LENGTH} characters or fewer.`);
+  }
+
+  // If anything was wrong, show the form again with the messages and the
+  // person's own answers, so they do not have to start again.
+  // 400 is the HTTP status code for "Bad Request".
+  if (errors.length > 0) {
+    return res.status(400).render('profile-form', {
+      ...getFormLists(),
+      values: profile,
+      errors,
+    });
+  }
+
+  saveProfile(userId, profile);
+
+  // Setup is finished, so go to the home page (agreed with Walied).
+  // Feature 03 made it the dashboard.
+  res.redirect('/');
+});
+
+// 3. PROFILE PAGE: Show one person's profile.
 // ":id" is a gap in the address. For /profile/7, req.params.id is '7'.
 // app.js puts this router below the login check, so only logged-in users
 // reach it, and res.locals.currentUser is always set.
