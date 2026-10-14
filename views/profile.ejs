@@ -19,8 +19,10 @@
 
   <div class="profile-heading">
     <%# The coloured circle. aria-hidden hides it from screen readers,
-        because the name straight after it already says the same thing. %>
-    <span class="initials" aria-hidden="true"><%= initials %></span>
+        because the name straight after it already says the same thing.
+        circleColour is 1 to 5, picked from the person's id, and the
+        colour-1 to colour-5 classes in style.css give the colours. %>
+    <span class="initials colour-<%= circleColour %>" aria-hidden="true"><%= initials %></span>
     <div>
       <h1><%= profile.name %></h1>
       <%# A user may have no course; show it only when there is one %>
@@ -35,22 +37,25 @@
     <p><a href="/profile/edit">Edit my profile</a></p>
   <% } %>
 
-  <%# The bio and business idea are optional, so show each only if filled in %>
+  <%# The bio and business idea are optional, so show each only if filled in.
+      The profile-text class keeps the line breaks the person typed. %>
   <% if (profile.bio) { %>
     <h2>About me</h2>
-    <p><%= profile.bio %></p>
+    <p class="profile-text"><%= profile.bio %></p>
   <% } %>
 
   <% if (profile.business_idea) { %>
     <h2>Business idea</h2>
-    <p><%= profile.business_idea %></p>
+    <p class="profile-text"><%= profile.business_idea %></p>
   <% } %>
 
+  <%# Every list of ticks below uses the tag-list class, which shows each
+      tick as a small rounded tag in a row instead of a bullet point %>
   <h2>Looking for</h2>
   <% if (lookingFor.length === 0) { %>
     <p>Nothing ticked yet.</p>
   <% } else { %>
-    <ul>
+    <ul class="tag-list">
       <% for (const label of lookingFor) { %>
         <li><%= label %></li>
       <% } %>
@@ -64,8 +69,8 @@
     <p>Nothing ticked yet.</p>
   <% } else { %>
     <% for (const group of skillsHas) { %>
-      <h3><%= group.category %></h3>
-      <ul>
+      <h3 class="category-heading"><%= group.category %></h3>
+      <ul class="tag-list">
         <% for (const skill of group.skills) { %>
           <li><%= skill.name %></li>
         <% } %>
@@ -78,8 +83,8 @@
     <p>Nothing ticked yet.</p>
   <% } else { %>
     <% for (const group of skillsWants) { %>
-      <h3><%= group.category %></h3>
-      <ul>
+      <h3 class="category-heading"><%= group.category %></h3>
+      <ul class="tag-list">
         <% for (const skill of group.skills) { %>
           <li><%= skill.name %></li>
         <% } %>
@@ -91,7 +96,7 @@
   <% if (interests.length === 0) { %>
     <p>Nothing ticked yet.</p>
   <% } else { %>
-    <ul>
+    <ul class="tag-list">
       <% for (const interest of interests) { %>
         <li><%= interest %></li>
       <% } %>

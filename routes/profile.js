@@ -25,6 +25,14 @@ function getInitials(name) {
   return (first + last).toUpperCase();
 }
 
+// Picks one of the 5 circle colours in public/style.css (colour-1 to
+// colour-5) from a person's id number, so the same person always gets the
+// same colour. % gives the remainder after dividing by 5, which is 0 to 4,
+// so adding 1 gives 1 to 5. For example: id 7 -> 7 % 5 = 2 -> colour 3.
+function getCircleColour(id) {
+  return (id % 5) + 1;
+}
+
 // Turns a flat list of skills into groups, one per category.
 // In:  [{ id: 1, name: 'Sales', category: 'Business' }, { id: 2, name: 'Pitching', category: 'Business' }]
 // Out: [{ category: 'Business', skills: [{ id: 1, name: 'Sales' }, { id: 2, name: 'Pitching' }] }]
@@ -329,16 +337,18 @@ router.get('/profile/:id', (req, res) => {
     )
     .get(id);
 
-  // Is the logged-in user looking at their own page?
-  // "profile &&" stops this line from failing when nobody was found.
-  const isOwnProfile = Boolean(profile) && profile.id === currentUser.id;
-
   // "Profile not found" when nobody has this id, or when the person has
-  // not finished setup and someone else is looking (spec decision).
+  // not finished setup (spec decision).
+  // The person looking has always finished setup, because the setup gate
+  // (middleware/setup.js) sends everyone else to the form before they get
+  // here. So an unfinished profile always belongs to someone else.
   // 404 is the HTTP status code for "Not Found".
-  if (!profile || (profile.setup_complete === 0 && !isOwnProfile)) {
+  if (!profile || profile.setup_complete === 0) {
     return res.status(404).render('profile', { profile: null });
   }
+
+  // Is the logged-in user looking at their own page?
+  const isOwnProfile = profile.id === currentUser.id;
 
   // The "looking for" options they ticked, in the fixed list's order
   const lookingFor = db
@@ -370,6 +380,7 @@ router.get('/profile/:id', (req, res) => {
     profile,
     isOwnProfile,
     initials: getInitials(profile.name),
+    circleColour: getCircleColour(profile.id),
     lookingFor,
     skillsHas: getSkills(id, 'has'),
     skillsWants: getSkills(id, 'wants'),

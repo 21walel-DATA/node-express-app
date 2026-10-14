@@ -43,8 +43,10 @@
 
   <%# A fieldset draws a box around a group of tick boxes. Its legend is the
       group's name, so a screen reader says, for example,
-      "Looking for, group. Find a mentor, tick box". %>
-  <fieldset class="form-field">
+      "Looking for, group. Find a mentor, tick box".
+      The class is form-group, NOT form-field: Walied's ".form-field input"
+      rule makes text boxes full width, and would stretch the tick boxes too. %>
+  <fieldset class="form-group">
     <legend>Looking for</legend>
     <% for (const option of lookingForOptions) { %>
       <div class="form-check">
@@ -56,13 +58,13 @@
 
   <%# The two skill lists show the same skills. Their ids start with
       "has-" or "wants-", so every tick box on the page has a different id. %>
-  <fieldset class="form-field">
+  <fieldset class="form-group">
     <legend>Skills I have</legend>
     <% if (skillGroups.length === 0) { %>
       <p>No skills to choose from yet. Please ask an admin.</p>
     <% } %>
     <% for (const group of skillGroups) { %>
-      <h3><%= group.category %></h3>
+      <h3 class="category-heading"><%= group.category %></h3>
       <% for (const skill of group.skills) { %>
         <div class="form-check">
           <input type="checkbox" id="has-<%= skill.id %>" name="skills_has" value="<%= skill.id %>" <%= values.skillsHas.includes(skill.id) ? 'checked' : '' %>>
@@ -72,13 +74,13 @@
     <% } %>
   </fieldset>
 
-  <fieldset class="form-field">
+  <fieldset class="form-group">
     <legend>Skills I am looking for</legend>
     <% if (skillGroups.length === 0) { %>
       <p>No skills to choose from yet. Please ask an admin.</p>
     <% } %>
     <% for (const group of skillGroups) { %>
-      <h3><%= group.category %></h3>
+      <h3 class="category-heading"><%= group.category %></h3>
       <% for (const skill of group.skills) { %>
         <div class="form-check">
           <input type="checkbox" id="wants-<%= skill.id %>" name="skills_wants" value="<%= skill.id %>" <%= values.skillsWants.includes(skill.id) ? 'checked' : '' %>>
@@ -88,7 +90,7 @@
     <% } %>
   </fieldset>
 
-  <fieldset class="form-field">
+  <fieldset class="form-group">
     <legend>Interests</legend>
     <% if (interestOptions.length === 0) { %>
       <p>No interests to choose from yet. Please ask an admin.</p>

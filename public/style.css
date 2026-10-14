@@ -313,3 +313,151 @@ main.container {
   margin: 0;
   padding-left: 1.25rem;
 }
+
+/* ---------------------------------------------------------
+   8. PROFILES (feature 02, Koulla)
+   The profile page (views/profile.ejs) and the profile form
+   (views/profile-form.ejs).
+   --------------------------------------------------------- */
+
+/* Colours for the initials circles. Each person gets one of five
+   backgrounds, picked from their id number (getCircleColour in
+   routes/profile.js). tests/profile.test.js checks that the initials are
+   easy to read on every background, in light and dark mode (at least 4.5
+   to 1, PRD section 7). */
+:root {
+  --circle-text: #ffffff;  /* the initials */
+  --circle-1: #0b5cad;     /* blue */
+  --circle-2: #1e7a3c;     /* green */
+  --circle-3: #6a3fa0;     /* purple */
+  --circle-4: #9a4a00;     /* burnt orange */
+  --circle-5: #00695c;     /* teal */
+}
+
+/* Dark mode: lighter backgrounds with dark initials */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --circle-text: #121417;
+    --circle-1: #8ab4f8;
+    --circle-2: #81c995;
+    --circle-3: #c58af9;
+    --circle-4: #f6ae6d;
+    --circle-5: #78d9cc;
+  }
+}
+
+/* The circle, the name and the course in one row */
+.profile-heading {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* overflow-wrap: anywhere lets a very long name or word break onto the
+   next line instead of running off the side of a phone screen */
+.profile-heading h1 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The course line under the name */
+.profile-course {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+/* The initials circle. border-radius: 50% turns a square into a circle.
+   Flex puts the letters in the exact middle. flex-shrink: 0 stops the
+   circle being squashed on a narrow screen. */
+.initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--circle-text);
+  background: var(--circle-1);
+}
+
+/* One class for each of the five colours */
+.colour-1 { background: var(--circle-1); }
+.colour-2 { background: var(--circle-2); }
+.colour-3 { background: var(--circle-3); }
+.colour-4 { background: var(--circle-4); }
+.colour-5 { background: var(--circle-5); }
+
+/* The bio and business idea. A web page normally ignores the line breaks
+   someone typed; pre-line keeps them. */
+.profile-text {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+/* A category name (such as "Business") above its skills: small and grey,
+   so it reads as a sub-heading */
+.category-heading {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  margin: 0.75rem 0 0.25rem;
+}
+
+/* A list of ticks shown as rounded tags in a row. flex-wrap lets the tags
+   carry on to the next line when the row is full. */
+.tag-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* One tag. A very large border-radius gives fully rounded ends. */
+.tag-list li {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.15rem 0.75rem;
+}
+
+/* A group of tick boxes on the form: a box like the dashboard's match
+   cards. min-width: 0 stops a fieldset growing wider than the page, which
+   browsers otherwise allow. */
+.form-group {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.75rem 1rem 0.25rem;
+  margin: 0 0 1.25rem;
+  min-width: 0;
+}
+
+/* The group's name, written on the top edge of the box */
+.form-group legend {
+  font-weight: 600;
+  padding: 0 0.25rem;
+}
+
+/* Tick boxes inside a group sit closer together than other form rows */
+.form-group .form-check {
+  margin-bottom: 0.5rem;
+}
+
+/* The bio and business idea boxes look like the other text boxes.
+   resize: vertical lets people make the box taller but not wider. */
+.form-field textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  resize: vertical;
+}

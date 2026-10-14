@@ -1,7 +1,13 @@
 // tests/profile.test.js
 // Tests for feature 02, Profiles (specs/02-profiles.md).
-// This first group covers the profile page, /profile/:id.
+// The groups, in order: the profile page, showing the form, saving the
+// form, the setup gate, and the styles.
 // Run all tests with: npm test
+
+// fs ("file system") lets a test read a file, here the stylesheet
+const fs = require('node:fs');
+// path joins folder and file names in a way that works on every computer
+const path = require('node:path');
 
 // test: Node's built-in function for defining one test
 const test = require('node:test');
@@ -78,8 +84,9 @@ test('a profile page shows the name, course, initials, text and ticks', async ()
   assert.match(response.text, /<h1>Ada Lane<\/h1>/);
   // createUser puts people on the first course
   assert.match(response.text, /Software development/);
-  // The coloured circle holds the initials
-  assert.match(response.text, /class="initials"[^>]*>AL</);
+  // The coloured circle holds the initials. [^"]* allows more class
+  // names after "initials", such as the circle's colour.
+  assert.match(response.text, /class="initials[^"]*"[^>]*>AL</);
   assert.match(response.text, /I love selling things\./);
   assert.match(response.text, /An app for local markets\./);
   assert.match(response.text, /Co-founder \/ business partner/);
@@ -100,7 +107,7 @@ test('a one-word name shows one initial', async () => {
 
   const response = await agent.get(`/profile/${cher.id}`);
 
-  assert.match(response.text, /class="initials"[^>]*>C</);
+  assert.match(response.text, /class="initials[^"]*"[^>]*>C</);
 });
 
 // 3. NORMAL CASE: your own page has the "Edit my profile" link
@@ -650,4 +657,116 @@ test('a logged-out visitor is sent to the login page, not the form', async () =>
 
   assert.strictEqual(response.status, 302);
   assert.strictEqual(response.headers.location, '/login');
+});
+
+// ---------------------------------------------------------
+// STYLES (build step 5)
+// Tests cannot see how a page LOOKS. They can check that the pages use the
+// right class names, and that the circle colours are easy to read.
+// ---------------------------------------------------------
+
+// 36. The tick box groups use their own class, so Walied's rule for
+// ".form-field input" (which makes text boxes full width) does not
+// stretch the tick boxes
+test('the form\'s tick box groups use the form-group class', async () => {
+  const agent = await loginAs(app);
+
+  const response = await agent.get('/profile/edit');
+
+  // 4 groups: looking for, skills I have, skills I am looking for, interests
+  const groups = response.text.match(/<fieldset class="form-group">/g) || [];
+  assert.strictEqual(groups.length, 4);
+  assert.doesNotMatch(response.text, /<fieldset class="form-field">/);
+});
+
+// 37. The bio and business idea keep their line breaks (the CSS for the
+// profile-text class does this)
+test('the bio and business idea use the profile-text class', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  fillProfile(agent.user.id);
+
+  const response = await agent.get(`/profile/${agent.user.id}`);
+
+  assert.match(response.text, /<p class="profile-text">I love selling things\.<\/p>/);
+  assert.match(response.text, /<p class="profile-text">An app for local markets\.<\/p>/);
+});
+
+// 38. The ticks on a profile page are shown as tags
+test('the ticks on a profile page are shown as tag lists', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  fillProfile(agent.user.id);
+
+  const response = await agent.get(`/profile/${agent.user.id}`);
+
+  // Looking for, the two skill lists (one category each), and interests
+  const tagLists = response.text.match(/<ul class="tag-list">/g) || [];
+  assert.strictEqual(tagLists.length, 4);
+});
+
+// 39. Each person's circle gets one of 5 colours, picked from their id
+// number, so the same person always has the same colour
+test('the initials circle colour is picked from the person\'s id', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const first = createUser({ setupComplete: true });
+  const second = createUser({ setupComplete: true });
+
+  for (const person of [first, second]) {
+    const response = await agent.get(`/profile/${person.id}`);
+    // % gives the remainder after dividing: ids 1 to 5 give colours
+    // 2, 3, 4, 5, 1, and then the pattern repeats
+    const colour = (person.id % 5) + 1;
+    assert.match(response.text, new RegExp(`class="initials colour-${colour}"`));
+  }
+});
+
+// Works out how easy it is to read one colour on another (the "contrast
+// ratio" from the WCAG accessibility guidelines). 1 means no difference at
+// all; 21 is black on white. PRD section 7 asks for at least 4.5.
+function contrastRatio(colourA, colourB) {
+  // How bright a colour looks to the human eye, from 0 (black) to 1 (white)
+  function brightness(hex) {
+    // '#0b5cad' -> red 0b, green 5c, blue ad, each turned into 0 to 1
+    const [red, green, blue] = [1, 3, 5].map((start) => {
+      const value = parseInt(hex.slice(start, start + 2), 16) / 255;
+      // The standard formula: screens do not show brightness in a
+      // straight line, so this undoes that
+      return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    // Eyes are most sensitive to green and least to blue
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  }
+
+  const lighter = Math.max(brightness(colourA), brightness(colourB));
+  const darker = Math.min(brightness(colourA), brightness(colourB));
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+// 40. Every circle colour is easy to read, in light AND dark mode
+test('every initials circle colour passes the 4.5 contrast rule', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'style.css'), 'utf8');
+
+  // The circle colours are written in style.css like this:
+  //   --circle-text: #ffffff;   (the initials)
+  //   --circle-1: #0b5cad;      (one background colour)
+  // once for light mode, then again for dark mode
+  const textColours = [...css.matchAll(/--circle-text:\s*(#[0-9a-f]{6})/gi)].map((m) => m[1]);
+  const backgrounds = [...css.matchAll(/--circle-[1-5]:\s*(#[0-9a-f]{6})/gi)].map((m) => m[1]);
+
+  // 1 text colour and 5 backgrounds for each of the two modes
+  assert.strictEqual(textColours.length, 2);
+  assert.strictEqual(backgrounds.length, 10);
+
+  const modes = [
+    { name: 'light', text: textColours[0], backgrounds: backgrounds.slice(0, 5) },
+    { name: 'dark', text: textColours[1], backgrounds: backgrounds.slice(5, 10) },
+  ];
+  for (const mode of modes) {
+    for (const background of mode.backgrounds) {
+      const ratio = contrastRatio(mode.text, background);
+      assert.ok(
+        ratio >= 4.5,
+        `${mode.name} mode: ${mode.text} on ${background} is only ${ratio.toFixed(2)}`
+      );
+    }
+  }
 });
