@@ -73,9 +73,14 @@ test('the header shows an Admin link to admins', async () => {
 
 // 6. EDGE CASE: students do not see the Admin link
 test('the header does not show the Admin link to students', async () => {
-  const agent = await loginAs(app);
+  // setupComplete: true gets the student past the profile setup gate, so
+  // they really reach the dashboard (otherwise they are redirected to the
+  // profile form, and the check below would pass without proving anything)
+  const agent = await loginAs(app, { setupComplete: true });
 
   const response = await agent.get('/');
 
+  // Check the dashboard really loaded before checking what is missing from it
+  assert.strictEqual(response.status, 200);
   assert.doesNotMatch(response.text, /href="\/admin"/);
 });
