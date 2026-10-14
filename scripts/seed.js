@@ -282,6 +282,25 @@ function seed(password) {
   fillInTransaction(passwordHash);
 }
 
+// Seeds only when the SEED_DEMO_DATA setting is switched on.
+// index.js calls this as the app starts, which is how the made-up students
+// reach Railway: switch SEED_DEMO_DATA on in Railway's Variables tab,
+// redeploy, check, then remove it again. (Left on, every redeploy would
+// bring back a made-up student that an admin had deleted.)
+// env is the list of environment variables, usually process.env. Tests
+// pass their own list instead.
+// Returns true if it seeded, so the caller can say so.
+function seedOnStartup(env) {
+  // Environment variables are always text, so compare with the text 'true'.
+  // Anything else ('false', 'yes', not set) leaves the database alone.
+  if (env.SEED_DEMO_DATA !== 'true') {
+    return false;
+  }
+
+  seed(env.SEED_PASSWORD);
+  return true;
+}
+
 // ---------------------------------------------------------
 // 5. RUNNING THE SCRIPT
 // ---------------------------------------------------------
@@ -303,5 +322,6 @@ if (require.main === module) {
   }
 }
 
-// Share the function so the tests can call it
-module.exports = seed;
+// Share both functions: the tests call seed(), and index.js and the
+// tests call seedOnStartup()
+module.exports = { seed, seedOnStartup };

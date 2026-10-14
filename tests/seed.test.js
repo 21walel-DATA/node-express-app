@@ -11,8 +11,10 @@ const bcrypt = require('bcryptjs');
 require('./helpers');
 const db = require('../db');
 
-// The seed script gives us one function, seed(), that fills the database
-const seed = require('../scripts/seed');
+// The seed script gives us two functions: seed() fills the database, and
+// seedOnStartup() does the same only when SEED_DEMO_DATA is 'true'.
+// The { } pick those two out of the object the file shares.
+const { seed, seedOnStartup } = require('../scripts/seed');
 
 // Counts the rows in a table and returns the number.
 // The table name is typed by us below, never by a user, so it is safe to
@@ -146,4 +148,26 @@ test('with a password, every made-up student can log in with it', () => {
     );
     assert.strictEqual(bcrypt.compareSync('wrong-password', user.password_hash), false);
   }
+});
+
+// 7. NORMAL CASE: at startup, nothing is seeded unless SEED_DEMO_DATA is 'true'
+test('seedOnStartup does nothing unless SEED_DEMO_DATA is "true"', () => {
+  // Start with no students, so we can see whether any are added
+  db.prepare('DELETE FROM users').run();
+
+  // Each { } is a pretend list of environment variables
+  assert.strictEqual(seedOnStartup({}), false);
+  assert.strictEqual(seedOnStartup({ SEED_DEMO_DATA: 'false' }), false);
+  assert.strictEqual(seedOnStartup({ SEED_DEMO_DATA: 'yes' }), false);
+
+  assert.strictEqual(countRows('users'), 0);
+});
+
+// 8. NORMAL CASE: at startup, SEED_DEMO_DATA 'true' adds the made-up students
+test('seedOnStartup seeds when SEED_DEMO_DATA is "true"', () => {
+  db.prepare('DELETE FROM users').run();
+
+  assert.strictEqual(seedOnStartup({ SEED_DEMO_DATA: 'true' }), true);
+
+  assert.strictEqual(countRows('users'), 8);
 });
