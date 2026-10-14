@@ -21,9 +21,11 @@ router.get('/connections', (req, res) => {
 
   // Requests TO you that are still waiting. The other person is the sender.
   // Newest first. Declined ones are left out: you already said no.
+  // requestId is needed for the Accept and Decline buttons.
   const received = db
     .prepare(
-      `SELECT users.id, users.name, courses.name AS course
+      `SELECT connection_requests.id AS requestId,
+              users.id, users.name, courses.name AS course
        FROM connection_requests
        JOIN users ON users.id = connection_requests.sender_id
        LEFT JOIN courses ON courses.id = users.course_id
@@ -125,6 +127,37 @@ router.post('/connections/request/:userId', (req, res) => {
   // Post/Redirect/Get: after saving, send the browser to a normal page, so
   // refreshing it does not send the request again
   res.redirect(backToProfile);
+});
+
+// Answers a request: used by both the Accept and the Decline button.
+// newStatus is 'accepted' or 'declined'.
+// The rules are inside the UPDATE itself: it changes the request ONLY if
+// it was sent to the logged-in user AND is still waiting. If anything is
+// wrong (someone else's request, already answered, or no such request),
+// no row fits, so nothing changes.
+// Either way the user goes back to the Connections page, which always
+// shows the true state.
+function answerRequest(req, res, newStatus) {
+  // Only whole numbers can be request ids
+  if (/^\d+$/.test(req.params.id)) {
+    db.prepare(
+      `UPDATE connection_requests SET status = ?
+       WHERE id = ? AND receiver_id = ? AND status = 'pending'`
+    ).run(newStatus, Number(req.params.id), res.locals.currentUser.id);
+  }
+
+  res.redirect('/connections');
+}
+
+// 3. ACCEPT A REQUEST: the Accept button on the Connections page.
+// ":id" is the request's id number.
+router.post('/connections/:id/accept', (req, res) => {
+  answerRequest(req, res, 'accepted');
+});
+
+// 4. DECLINE A REQUEST: the Decline button on the Connections page
+router.post('/connections/:id/decline', (req, res) => {
+  answerRequest(req, res, 'declined');
 });
 
 // Share the router with app.js

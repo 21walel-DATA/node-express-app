@@ -1,7 +1,8 @@
 <%# views/connections.ejs
     The Connections page, at /connections. routes/connections.js passes in
     three lists of people (id, name, course):
-      received   waiting requests sent TO the logged-in user
+      received   waiting requests sent TO the logged-in user (each also
+                 has requestId, for the Accept and Decline buttons)
       sent       requests the logged-in user sent (waiting or declined)
       connected  accepted requests, whoever asked
     Each list is a section with an id, so the tests can check that a name
@@ -24,10 +25,20 @@
     <% } else { %>
       <ul class="person-list">
         <% for (const person of received) { %>
-          <%# The Accept and Decline buttons come in build step 3 %>
           <li>
             <a href="/profile/<%= person.id %>"><%= person.name %></a>
             <% if (person.course) { %><span class="person-course"><%= person.course %></span><% } %>
+            <%# Two small forms, because each button changes data.
+                aria-label adds the name, so a screen reader says
+                "Accept Sam Taylor" rather than just "Accept". %>
+            <span class="person-actions">
+              <form method="post" action="/connections/<%= person.requestId %>/accept">
+                <button type="submit" class="button" aria-label="Accept <%= person.name %>">Accept</button>
+              </form>
+              <form method="post" action="/connections/<%= person.requestId %>/decline">
+                <button type="submit" class="button button-secondary" aria-label="Decline <%= person.name %>">Decline</button>
+              </form>
+            </span>
           </li>
         <% } %>
       </ul>

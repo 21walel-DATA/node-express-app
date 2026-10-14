@@ -141,6 +141,10 @@ One small step at a time, test first, one commit each.
 2. The Connections page, with its three lists. **Done.** If all three are
    empty it says "No connections yet" with a link to the dashboard; an
    empty list on its own says "None right now" (or "None yet").
+3. Accept and decline. **Done.** A refused answer (someone else's request,
+   one already answered, or one that does not exist) changes nothing and
+   sends the user back to `/connections`, the same way step 1 sends them
+   back to the profile.
 
 ## Open questions
 

@@ -22,11 +22,18 @@ const { loginAs, createUser } = require('./loginHelper');
 // ---------------------------------------------------------
 
 // Adds a request straight to the database, skipping the button.
-// status is 'pending', 'accepted' or 'declined'.
+// status is 'pending', 'accepted' or 'declined'. Gives back the new
+// request's id number.
 function addRequest(senderId, receiverId, status) {
-  db.prepare(
-    'INSERT INTO connection_requests (sender_id, receiver_id, status) VALUES (?, ?, ?)'
-  ).run(senderId, receiverId, status);
+  const result = db
+    .prepare('INSERT INTO connection_requests (sender_id, receiver_id, status) VALUES (?, ?, ?)')
+    .run(senderId, receiverId, status);
+  return result.lastInsertRowid;
+}
+
+// Reads a request's status straight from the database
+function getStatus(requestId) {
+  return db.prepare('SELECT status FROM connection_requests WHERE id = ?').get(requestId).status;
 }
 
 // Counts the requests between two people, either way round
@@ -371,4 +378,120 @@ test('a logged-out visitor cannot see the Connections page', async () => {
 
   assert.strictEqual(response.status, 302);
   assert.strictEqual(response.headers.location, '/login');
+});
+
+// ---------------------------------------------------------
+// 4. ACCEPT AND DECLINE
+// ---------------------------------------------------------
+
+test('a waiting request to you has Accept and Decline buttons', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const asker = createUser({ setupComplete: true });
+  const requestId = addRequest(asker.id, agent.user.id, 'pending');
+
+  const response = await agent.get('/connections');
+
+  const received = getSection(response.text, 'received');
+  assert.match(received, new RegExp(`action="/connections/${requestId}/accept"`));
+  assert.match(received, new RegExp(`action="/connections/${requestId}/decline"`));
+});
+
+test('accepting a request connects the two people', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const asker = createUser({ name: 'Ann Accepted', setupComplete: true });
+  const requestId = addRequest(asker.id, agent.user.id, 'pending');
+
+  const response = await agent.post(`/connections/${requestId}/accept`);
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/connections');
+  assert.strictEqual(getStatus(requestId), 'accepted');
+
+  // They have moved from "Requests to you" to "Your connections"
+  const page = await agent.get('/connections');
+  assert.match(getSection(page.text, 'connected'), /Ann Accepted/);
+  assert.doesNotMatch(getSection(page.text, 'received'), /Ann Accepted/);
+});
+
+test('declining a request marks it declined, and the sender still sees "Request sent"', async () => {
+  const asker = await loginAs(app, { setupComplete: true });
+  const agent = await loginAs(app, { setupComplete: true });
+  const requestId = addRequest(asker.user.id, agent.user.id, 'pending');
+
+  const response = await agent.post(`/connections/${requestId}/decline`);
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/connections');
+  assert.strictEqual(getStatus(requestId), 'declined');
+
+  // Decision 2: the sender is never told "no"
+  const senderView = await asker.get(`/profile/${agent.user.id}`);
+  assert.match(senderView.text, /Request sent/);
+});
+
+test('the sender cannot accept their own request', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const other = createUser({ setupComplete: true });
+  const requestId = addRequest(agent.user.id, other.id, 'pending');
+
+  const response = await agent.post(`/connections/${requestId}/accept`);
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/connections');
+  assert.strictEqual(getStatus(requestId), 'pending');
+});
+
+test('a third person cannot accept or decline someone else\'s request', async () => {
+  const outsider = await loginAs(app, { setupComplete: true });
+  const sender = createUser({ setupComplete: true });
+  const receiver = createUser({ setupComplete: true });
+  const requestId = addRequest(sender.id, receiver.id, 'pending');
+
+  const acceptTry = await outsider.post(`/connections/${requestId}/accept`);
+  const declineTry = await outsider.post(`/connections/${requestId}/decline`);
+
+  // Sent back to their own Connections page, and nothing changed
+  assert.strictEqual(acceptTry.headers.location, '/connections');
+  assert.strictEqual(declineTry.headers.location, '/connections');
+  assert.strictEqual(getStatus(requestId), 'pending');
+});
+
+test('a request that was already answered cannot be changed', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const asker1 = createUser({ setupComplete: true });
+  const asker2 = createUser({ setupComplete: true });
+  const declinedId = addRequest(asker1.id, agent.user.id, 'declined');
+  const acceptedId = addRequest(asker2.id, agent.user.id, 'accepted');
+
+  const acceptTry = await agent.post(`/connections/${declinedId}/accept`);
+  const declineTry = await agent.post(`/connections/${acceptedId}/decline`);
+
+  assert.strictEqual(acceptTry.headers.location, '/connections');
+  assert.strictEqual(declineTry.headers.location, '/connections');
+  assert.strictEqual(getStatus(declinedId), 'declined');
+  assert.strictEqual(getStatus(acceptedId), 'accepted');
+});
+
+test('accepting a request that does not exist, or "abc", changes nothing', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+
+  const missing = await agent.post('/connections/999999/accept');
+  const notANumber = await agent.post('/connections/abc/accept');
+
+  assert.strictEqual(missing.status, 302);
+  assert.strictEqual(missing.headers.location, '/connections');
+  assert.strictEqual(notANumber.status, 302);
+  assert.strictEqual(notANumber.headers.location, '/connections');
+});
+
+test('a logged-out visitor cannot accept a request', async () => {
+  const sender = createUser({ setupComplete: true });
+  const receiver = createUser({ setupComplete: true });
+  const requestId = addRequest(sender.id, receiver.id, 'pending');
+
+  const response = await request(app).post(`/connections/${requestId}/accept`);
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/login');
+  assert.strictEqual(getStatus(requestId), 'pending');
 });
