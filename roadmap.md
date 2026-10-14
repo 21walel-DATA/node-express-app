@@ -171,5 +171,5 @@ The five brief essentials are never cut, only simplified.
 - [x] 04 Messaging
 - [x] 05 Admin
 - [x] 06 Account page (A: change details, B: delete account)
-- [ ] 07 Photo upload
+- [x] 07 Photo upload
 - [ ] 08 Basic blocking (if time)
