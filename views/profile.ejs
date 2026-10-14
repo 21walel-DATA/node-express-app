@@ -37,6 +37,26 @@
     <p><a href="/profile/edit">Edit my profile</a></p>
   <% } %>
 
+  <%# Connecting (feature 04). Only on someone else's page.
+      connectionStatus comes from getConnectionStatus in routes/profile.js. %>
+  <% if (!isOwnProfile) { %>
+    <% if (connectionStatus === 'none') { %>
+      <%# A form, not a link, because pressing it saves something %>
+      <form method="post" action="/connections/request/<%= profile.id %>">
+        <button type="submit" class="button">Send connection request</button>
+      </form>
+    <% } else if (connectionStatus === 'sent') { %>
+      <p class="connection-status">Request sent</p>
+    <% } else if (connectionStatus === 'received') { %>
+      <p class="connection-status">They have sent you a request. <a href="/connections">See your connections</a></p>
+    <% } else if (connectionStatus === 'declined') { %>
+      <p class="connection-status">You declined their request</p>
+    <% } else if (connectionStatus === 'connected') { %>
+      <%# The "Open conversation" link comes in build step 4 %>
+      <p class="connection-status">You are connected</p>
+    <% } %>
+  <% } %>
+
   <%# The bio and business idea are optional, so show each only if filled in.
       The profile-text class keeps the line breaks the person typed. %>
   <% if (profile.bio) { %>

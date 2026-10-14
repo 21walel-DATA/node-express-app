@@ -58,6 +58,7 @@ The buttons send forms (POST), never plain links, because they change data:
 | No request either way | "Send connection request" button |
 | You sent one, waiting **or declined** | "Request sent" (decision 2) |
 | They sent you one, waiting | "They have sent you a request" and a link to `/connections` |
+| They sent you one, and you declined | "You declined their request" (no button: decision 5) |
 | Accepted, either way round | "You are connected" and an "Open conversation" link |
 
 On your own profile none of these appear.
@@ -121,17 +122,27 @@ One small step at a time, test first, one commit each.
 3. A message can be up to **500 characters**, the same as the bio.
 4. A conversation that is not yours shows the **"misdirected" page** with the
    code 404 and a link back to your connections (option a: no automatic jump).
+5. **One request per pair, ever.** Once there is any request between two
+   people, either way round and whatever its status, neither can send a new
+   one. So someone who declined cannot later ask that person themselves.
+6. The two `app.js` lines for this feature go inside Koulla's own FEATURE 02
+   marked place, just under the profile routes, so the setup gate covers
+   them. No need to wait for Walied.
 
 ## Asked of Walied
 
-- A marked place in `app.js` for the connections routes.
+- ~~A marked place in `app.js`~~: not needed (decision 6).
 - A "Connections" link in `views/partials/header.ejs`, to `/connections`,
   shown only when someone is logged in.
 
+## Progress
+
+1. Send a request from the profile page. **Done** (`tests/connections.test.js`).
+
 ## Open questions
 
-- **If you declined someone, can you later send them a request yourself?**
-  Decide at build step 1.
+- ~~**If you declined someone, can you later send them a request
+  yourself?**~~ No (decision 5).
 - **How the message time is shown.** The database stores UTC time (the same
   as UK winter time), so until the clocks go back on 25 October it is one
   hour behind UK clocks. Decide at build step 4.

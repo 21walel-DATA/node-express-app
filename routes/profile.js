@@ -141,6 +141,40 @@ function getSavedValues(userId) {
   };
 }
 
+// Works out what the profile page says about connecting (feature 04).
+// viewerId is the person looking; otherId is the person on the page.
+// There is at most one request per pair, either way round, so .get()
+// finds it, or gives undefined when there is none. Gives back one of:
+//   'none'       no request yet: show the "Send connection request" button
+//   'sent'       the viewer asked, and it is waiting OR was declined (the
+//                sender is never told "no", decision 2 in specs/04-messaging.md)
+//   'received'   the other person asked, and it is waiting
+//   'declined'   the other person asked, and the viewer said no
+//   'connected'  accepted, whoever asked
+function getConnectionStatus(viewerId, otherId) {
+  const request = db
+    .prepare(
+      `SELECT sender_id, status FROM connection_requests
+       WHERE (sender_id = ? AND receiver_id = ?)
+          OR (sender_id = ? AND receiver_id = ?)`
+    )
+    .get(viewerId, otherId, otherId, viewerId);
+
+  if (!request) {
+    return 'none';
+  }
+  if (request.status === 'accepted') {
+    return 'connected';
+  }
+  if (request.sender_id === viewerId) {
+    return 'sent';
+  }
+  if (request.status === 'pending') {
+    return 'received';
+  }
+  return 'declined';
+}
+
 // The longest a bio or business idea may be (PRD section 4.2)
 const TEXT_MAX_LENGTH = 500;
 
@@ -379,6 +413,8 @@ router.get('/profile/:id', (req, res) => {
   res.render('profile', {
     profile,
     isOwnProfile,
+    // Not needed on your own page, so only worked out for someone else's
+    connectionStatus: isOwnProfile ? null : getConnectionStatus(currentUser.id, id),
     initials: getInitials(profile.name),
     circleColour: getCircleColour(profile.id),
     lookingFor,
