@@ -115,6 +115,10 @@ that if time runs out, Part B can be cut (roadmap cut order, item 2).
 2. Save name and email. **Done.** After saving: "Your details have been
    saved." The current password is only checked when the email really
    changes (capital letters do not count as a change).
+3. Change password. **Done.** After saving: "Your password has been
+   changed." The user stays logged in. **Part A is complete.** Other
+   browsers where the user is logged in stay logged in too; logging those
+   out is not in this sprint.
 
 ## Open questions
 

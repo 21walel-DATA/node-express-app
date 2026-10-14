@@ -237,3 +237,123 @@ test('a logged-out visitor cannot change any details', async () => {
   assert.strictEqual(response.status, 302);
   assert.strictEqual(response.headers.location, '/login');
 });
+
+// ---------------------------------------------------------
+// 3. CHANGING THE PASSWORD
+// ---------------------------------------------------------
+
+// Sends the change-password form for a logged-in agent
+function changePassword(agent, fields) {
+  return agent.post('/account/password').type('form').send(fields);
+}
+
+test('the Account page has a labelled change-password form', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+
+  const response = await agent.get('/account');
+
+  assert.match(response.text, /<form method="post" action="\/account\/password"/);
+  assert.match(response.text, /<label for="current_password">Current password<\/label>/);
+  assert.match(response.text, /<label for="new_password">New password<\/label>/);
+  assert.match(response.text, /<label for="new_password_again">Type the new password again<\/label>/);
+});
+
+test('changing the password works at the next login, and the old one stops working', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const { email } = getSaved(agent.user.id);
+
+  const response = await changePassword(agent, {
+    current_password: TEST_PASSWORD,
+    new_password: 'a-brand-new-password',
+    new_password_again: 'a-brand-new-password',
+  });
+
+  // Post/Redirect/Get: back to the Account page with a "saved" message
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/account?saved=password');
+  const page = await agent.get('/account?saved=password');
+  assert.match(page.text, /Your password has been changed\./);
+
+  // Still logged in: the page loaded (200), not a redirect to login
+  assert.strictEqual(page.status, 200);
+
+  assert.ok(await canLogIn(email, 'a-brand-new-password'), 'the new password logs in');
+  assert.ok(!(await canLogIn(email, TEST_PASSWORD)), 'the old password no longer logs in');
+});
+
+test('a wrong current password is refused, and the old password still works', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const { email } = getSaved(agent.user.id);
+
+  const response = await changePassword(agent, {
+    current_password: 'not-the-password',
+    new_password: 'a-brand-new-password',
+    new_password_again: 'a-brand-new-password',
+  });
+
+  // 400 is the HTTP status code for "Bad Request"
+  assert.strictEqual(response.status, 400);
+  assert.match(response.text, /Your current password is incorrect\./);
+  assert.ok(await canLogIn(email, TEST_PASSWORD), 'the old password still logs in');
+});
+
+test('a new password that is too short or too long is refused', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const { email } = getSaved(agent.user.id);
+
+  const tooShort = await changePassword(agent, {
+    current_password: TEST_PASSWORD,
+    new_password: 'short',
+    new_password_again: 'short',
+  });
+  const tooLong = await changePassword(agent, {
+    current_password: TEST_PASSWORD,
+    new_password: 'p'.repeat(73),
+    new_password_again: 'p'.repeat(73),
+  });
+
+  assert.strictEqual(tooShort.status, 400);
+  assert.match(tooShort.text, /Your new password must be at least 8 characters\./);
+  assert.strictEqual(tooLong.status, 400);
+  assert.match(tooLong.text, /Your new password must be 72 characters or fewer\./);
+  assert.ok(await canLogIn(email, TEST_PASSWORD), 'the old password still logs in');
+});
+
+test('two new passwords that differ are refused', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const { email } = getSaved(agent.user.id);
+
+  const response = await changePassword(agent, {
+    current_password: TEST_PASSWORD,
+    new_password: 'a-brand-new-password',
+    new_password_again: 'a-brand-new-pasword',
+  });
+
+  assert.strictEqual(response.status, 400);
+  assert.match(response.text, /The two new passwords do not match\./);
+  assert.ok(await canLogIn(email, TEST_PASSWORD), 'the old password still logs in');
+});
+
+test('a refused password form never puts any password back into the page', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+
+  const response = await changePassword(agent, {
+    current_password: 'secret-current-typed',
+    new_password: 'secret-new-typed-1',
+    new_password_again: 'secret-new-typed-2',
+  });
+
+  assert.strictEqual(response.status, 400);
+  assert.doesNotMatch(response.text, /secret-current-typed|secret-new-typed/);
+});
+
+test('a logged-out visitor cannot change a password', async () => {
+  const response = await request(app).post('/account/password').type('form').send({
+    current_password: TEST_PASSWORD,
+    new_password: 'a-brand-new-password',
+    new_password_again: 'a-brand-new-password',
+  });
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/login');
+});

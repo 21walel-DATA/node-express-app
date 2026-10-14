@@ -1,7 +1,7 @@
 // routes/account.js
 // Routes for feature 06, the Account page (see specs/06-account.md).
-// The page, and saving name and email. Changing the password and deleting
-// the account come in the next steps.
+// The page, saving name and email, and changing the password. Deleting the
+// account comes in the next step.
 
 const express = require('express');
 // bcryptjs checks a typed password against the scrambled (hashed) one
@@ -21,12 +21,18 @@ const NAME_MAX_LENGTH = 100;
 const EMAIL_MAX_LENGTH = 254;
 // "something@something.something", with no spaces
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_MIN_LENGTH = 8;
+// bcrypt only looks at the first 72 characters of a password
+const PASSWORD_MAX_LENGTH = 72;
+// How much work bcrypt does for each password (slower = harder to guess)
+const BCRYPT_ROUNDS = 10;
 
 // The "saved" messages, picked by the ?saved=... part of the address after a
 // form is saved. Only these words are ever shown, never text from the
 // address itself.
 const SAVED_MESSAGES = {
   details: 'Your details have been saved.',
+  password: 'Your password has been changed.',
 };
 
 // ---------------------------------------------------------
@@ -135,6 +141,46 @@ router.post('/account/details', async (req, res) => {
 
   // Post/Redirect/Get: back to the page, with the "saved" message
   res.redirect('/account?saved=details');
+});
+
+// 3. CHANGE PASSWORD: needs the current password, and the new one typed
+// twice the same (decision 2). The user stays logged in.
+router.post('/account/password', async (req, res) => {
+  const userId = res.locals.currentUser.id;
+
+  // Passwords are NOT trimmed: a space can be a real part of a password
+  const body = req.body || {};
+  const currentPassword = String(body.current_password || '');
+  const newPassword = String(body.new_password || '');
+  const newPasswordAgain = String(body.new_password_again || '');
+
+  const errors = [];
+
+  if (!(await isCurrentPassword(userId, currentPassword))) {
+    errors.push('Your current password is incorrect.');
+  }
+
+  if (newPassword.length < PASSWORD_MIN_LENGTH) {
+    errors.push(`Your new password must be at least ${PASSWORD_MIN_LENGTH} characters.`);
+  } else if (newPassword.length > PASSWORD_MAX_LENGTH) {
+    errors.push(`Your new password must be ${PASSWORD_MAX_LENGTH} characters or fewer.`);
+  } else if (newPassword !== newPasswordAgain) {
+    // Only worth saying when the new password itself is acceptable
+    errors.push('The two new passwords do not match.');
+  }
+
+  // Refused: show the page again. No password is ever sent back.
+  if (errors.length > 0) {
+    return renderAccount(res, { errors, status: 400 });
+  }
+
+  // Scramble (hash) the new password and save only the hash, the same way
+  // registration does. The real password is never stored.
+  const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, userId);
+
+  // Post/Redirect/Get, with the "saved" message
+  res.redirect('/account?saved=password');
 });
 
 // Share the router with app.js
