@@ -67,7 +67,7 @@ function fillProfile(userId) {
 
 // 1. NORMAL CASE: the page shows the person's details and all their ticks
 test('a profile page shows the name, course, initials, text and ticks', async () => {
-  const agent = await loginAs(app);
+  const agent = await loginAs(app, { setupComplete: true });
   const ada = createUser({ name: 'Ada Lane', setupComplete: true });
   fillProfile(ada.id);
 
@@ -95,7 +95,7 @@ test('a profile page shows the name, course, initials, text and ticks', async ()
 
 // 2. NORMAL CASE: a one-word name gives one initial
 test('a one-word name shows one initial', async () => {
-  const agent = await loginAs(app);
+  const agent = await loginAs(app, { setupComplete: true });
   const cher = createUser({ name: 'Cher', setupComplete: true });
 
   const response = await agent.get(`/profile/${cher.id}`);
@@ -112,20 +112,21 @@ test('your own profile page shows "Edit my profile"', async () => {
   assert.match(response.text, /<a href="\/profile\/edit">Edit my profile<\/a>/);
 });
 
-// 4. NORMAL CASE: you can see your own profile before setup is finished
-test('you can see your own unfinished profile', async () => {
+// 4. DENIED ACCESS: before setup is finished, even your own profile page
+// sends you to the form (the setup gate, Koulla's decision 2a)
+test('a new user who opens their own profile is sent to the form', async () => {
   // loginAs makes a user whose setup is NOT finished, unless told otherwise
-  const agent = await loginAs(app, { name: 'Nina New' });
+  const agent = await loginAs(app);
 
   const response = await agent.get(`/profile/${agent.user.id}`);
 
-  assert.strictEqual(response.status, 200);
-  assert.match(response.text, /<h1>Nina New<\/h1>/);
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/profile/edit');
 });
 
 // 5. DENIED ACCESS: someone else's page has no edit link
 test('someone else\'s profile page does not show "Edit my profile"', async () => {
-  const agent = await loginAs(app);
+  const agent = await loginAs(app, { setupComplete: true });
   const other = createUser({ setupComplete: true });
 
   const response = await agent.get(`/profile/${other.id}`);
@@ -137,7 +138,7 @@ test('someone else\'s profile page does not show "Edit my profile"', async () =>
 
 // 6. SECURITY: the email address is never shown
 test('a profile page does not show the email address', async () => {
-  const agent = await loginAs(app);
+  const agent = await loginAs(app, { setupComplete: true });
   const eve = createUser({ name: 'Eve Private', setupComplete: true });
 
   const response = await agent.get(`/profile/${eve.id}`);
@@ -150,7 +151,7 @@ test('a profile page does not show the email address', async () => {
 // If a bio could hold a working <script> tag, one user could run their
 // own code in other people's browsers.
 test('a bio containing HTML is shown as plain text', async () => {
-  const agent = await loginAs(app);
+  const agent = await loginAs(app, { setupComplete: true });
   const sneaky = createUser({ setupComplete: true });
   db.prepare('UPDATE users SET bio = ? WHERE id = ?').run('<script>alert(1)</script>', sneaky.id);
 
@@ -174,7 +175,7 @@ test('a logged-out visitor cannot see a profile page', async () => {
 
 // 9. NO RESULTS: a number that belongs to nobody
 test('a profile number that does not exist shows "Profile not found"', async () => {
-  const agent = await loginAs(app);
+  const agent = await loginAs(app, { setupComplete: true });
 
   const response = await agent.get('/profile/999999');
 
@@ -185,7 +186,7 @@ test('a profile number that does not exist shows "Profile not found"', async () 
 
 // 10. NO RESULTS: an address that is not a number at all
 test('a profile address that is not a number shows "Profile not found"', async () => {
-  const agent = await loginAs(app);
+  const agent = await loginAs(app, { setupComplete: true });
 
   const response = await agent.get('/profile/abc');
 
@@ -195,7 +196,7 @@ test('a profile address that is not a number shows "Profile not found"', async (
 
 // 11. NO RESULTS: someone else's profile that is not finished yet
 test('someone else\'s unfinished profile shows "Profile not found"', async () => {
-  const agent = await loginAs(app);
+  const agent = await loginAs(app, { setupComplete: true });
   const unfinished = createUser({ name: 'Una Finished' });
 
   const response = await agent.get(`/profile/${unfinished.id}`);
@@ -556,6 +557,96 @@ test('sending another user\'s number with the form changes only your own profile
 // 28. DENIED ACCESS: a logged-out visitor cannot save a profile
 test('a logged-out visitor cannot save a profile', async () => {
   const response = await postForm(request(app), validForm());
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/login');
+});
+
+// ---------------------------------------------------------
+// THE SETUP GATE (middleware/setup.js)
+// A logged-in user who has not finished setup is sent to the form.
+// ---------------------------------------------------------
+
+// 29. NORMAL CASE: a finished user walks straight through the gate
+test('a user who finished setup can open the dashboard', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+
+  const response = await agent.get('/');
+
+  assert.strictEqual(response.status, 200);
+  assert.match(response.text, /<h1>Your matches<\/h1>/);
+});
+
+// 30. NORMAL CASE: the whole journey, from new user to dashboard
+test('a new user who saves the form can then open the dashboard', async () => {
+  const agent = await loginAs(app);
+
+  // Before saving: sent to the form
+  const before = await agent.get('/');
+  assert.strictEqual(before.headers.location, '/profile/edit');
+
+  // Save a valid form...
+  await postForm(agent, validForm());
+
+  // ...and now the dashboard opens
+  const after = await agent.get('/');
+  assert.strictEqual(after.status, 200);
+  assert.match(after.text, /<h1>Your matches<\/h1>/);
+});
+
+// 31. DENIED ACCESS: a new user is sent from the dashboard to the form
+test('a new user who opens the dashboard is sent to the form', async () => {
+  const agent = await loginAs(app);
+
+  const response = await agent.get('/');
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/profile/edit');
+});
+
+// 32. DENIED ACCESS: a new user is sent from someone's profile to the form
+test('a new user who opens someone else\'s profile is sent to the form', async () => {
+  const other = createUser({ setupComplete: true });
+  const agent = await loginAs(app);
+
+  const response = await agent.get(`/profile/${other.id}`);
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/profile/edit');
+});
+
+// 33. NORMAL CASE: the gate never blocks the form itself, or a refused form
+test('a new user can open the form, and a refused form shows its messages', async () => {
+  const agent = await loginAs(app);
+
+  const form = await agent.get('/profile/edit');
+  assert.strictEqual(form.status, 200);
+
+  const refused = await postForm(agent, validForm({ interests: [] }));
+  assert.strictEqual(refused.status, 400);
+  assert.match(refused.text, /Tick at least one interest\./);
+});
+
+// 34. NORMAL CASE (spec row): the gate lets the privacy notice, the
+// stylesheet and logging out through
+test('a new user can still open the privacy notice and the stylesheet, and log out', async () => {
+  const agent = await loginAs(app);
+
+  const privacy = await agent.get('/privacy');
+  assert.strictEqual(privacy.status, 200);
+
+  const stylesheet = await agent.get('/style.css');
+  assert.strictEqual(stylesheet.status, 200);
+
+  const logout = await agent.post('/logout');
+  assert.strictEqual(logout.status, 302);
+  // Logging out goes to the login page, not to the form
+  assert.strictEqual(logout.headers.location, '/login');
+});
+
+// 35. DENIED ACCESS: a logged-out visitor goes to log in, not to the form
+test('a logged-out visitor is sent to the login page, not the form', async () => {
+  const response = await request(app).get('/');
 
   assert.strictEqual(response.status, 302);
   assert.strictEqual(response.headers.location, '/login');

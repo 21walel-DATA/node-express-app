@@ -144,5 +144,26 @@ through on its own. The test above still checks this.
   ("Sam Taylor" gives ST, "Cher" gives C).
 - The ticks are shown as simple lists, with skills grouped under their
   category. Styling comes in build step 5.
-- A user can see their own unfinished profile. The gate (build step 4) deals
-  with unfinished users.
+- ~~A user can see their own unfinished profile.~~ Changed by Koulla on
+  14 October 2026 (build step 4): the gate sends a user who has not finished
+  setup to the form from **every** page except the form itself, including
+  their own profile page. Their profile would be empty anyway, and one simple
+  rule is easier to explain and test.
+
+### The setup gate (Koulla, 14 October 2026)
+
+- `requireSetup` in `middleware/setup.js`, switched on in `app.js` directly
+  after `requireLogin` and above the profile routes.
+- A user who has not finished setup can open only `/profile/edit` (to see and
+  save the form). Every other logged-in page sends them there.
+- The privacy notice, login, logout and the files in `public/` sit above
+  `requireLogin`, so the gate never sees them and they stay open.
+- Walied's dashboard tests (`tests/home.test.js`, 6 tests) and one header
+  test (`tests/guard.test.js`) now log in with `setupComplete: true`, because
+  their users must get past the gate. Only those `loginAs(...)` lines changed;
+  Walied to confirm in the pull request.
+
+### Open questions
+
+- **Should admins skip the setup gate?** Right now the gate covers everyone,
+  admins too. Decide when the admin screens (feature 05) are built.
