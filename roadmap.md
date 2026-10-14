@@ -184,13 +184,23 @@ Echo (`echo@example.com`, Business development), and Walied's admin account.
 with Koulla's go-ahead; "Koulla" means checked by eye; "Walied" means
 reported by Walied.
 
-**Result so far: 22 passed, 1 being tested.** The open one is listed first.
+**Result: all 23 checks passed.**
 
-### Still open
+### Data after a redeploy (#2): passed
 
-| # | Feature | Check | Status |
-|---|---|---|---|
-| 2 | 00 | Data is still there after a redeploy | **Being tested.** On the live site, Delta's connection request got number 1, although requests were made there earlier in the evening (the 04 check) and request numbers are never reused, so the live database may have been reset at some point. Koulla's browser history shows the 04 and 06 checks used this same address. Direct test: Test Persist (`persist@example.com`) was registered at 23:35, before the redeploy that merging this change causes; logging in as Test Persist after that redeploy shows whether data survives |
+Test Persist (`persist@example.com`) was registered on the live site at
+23:35. Merging pull request #16 redeployed the site (`15e453d`, finished
+23:37). At 23:38 Test Persist could still log in, their profile (bio and
+ticks) was still there, and even the login session from before the
+redeploy still worked. Test Persist was then deleted with "Delete my
+account". Koulla's browser history shows the 04 and 06 checks used this
+same address.
+
+Still unexplained: Delta's connection request earlier in the evening got
+number 1, although requests had been made on the live site during the 04
+check, and request numbers are never reused. Data now survives a redeploy,
+so the live database was most likely reset once, earlier in the evening.
+Worth asking Walied after submission.
 
 ### Passed
 
