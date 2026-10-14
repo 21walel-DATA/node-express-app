@@ -330,7 +330,7 @@ router.get('/profile/:id', (req, res) => {
   const profile = db
     .prepare(
       `SELECT users.id, users.name, users.bio, users.business_idea,
-              users.setup_complete, courses.name AS course
+              users.setup_complete, users.photo_filename, courses.name AS course
        FROM users
        LEFT JOIN courses ON courses.id = users.course_id
        WHERE users.id = ?`

@@ -149,3 +149,85 @@ test('a user cannot change anyone else\'s photo', async () => {
   assert.strictEqual(photoFilename(other.user.id), null);
   assert.ok(photoFilename(agent.user.id));
 });
+
+// ---------------------------------------------------------
+// SHOWING PHOTOS
+// ---------------------------------------------------------
+
+// 9. NORMAL CASE (finish line): an uploaded photo shows on the profile,
+// in place of the initials circle
+test('an uploaded photo shows on the profile instead of the initials', async () => {
+  const agent = await loginAs(app, { name: 'Pia Photo', setupComplete: true });
+  await upload(agent, FAKE_JPEG, 'me.jpg');
+  const filename = photoFilename(agent.user.id);
+
+  // Another student looks at the profile
+  const viewer = await loginAs(app, { setupComplete: true });
+  const response = await viewer.get(`/profile/${agent.user.id}`);
+
+  assert.strictEqual(response.status, 200);
+  assert.match(response.text, new RegExp(`<img class="profile-photo" src="/photos/${filename}"`));
+  assert.doesNotMatch(response.text, /class="initials/);
+});
+
+// 10. NORMAL CASE: with no photo, the initials circle is shown
+test('a profile without a photo shows the initials circle', async () => {
+  const agent = await loginAs(app, { name: 'Nina Nophoto', setupComplete: true });
+
+  const response = await agent.get(`/profile/${agent.user.id}`);
+
+  assert.match(response.text, /class="initials/);
+  assert.doesNotMatch(response.text, /class="profile-photo"/);
+});
+
+// 11. NORMAL CASE: a logged-in user can load another user's photo file
+test('a logged-in user can load a photo file', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  await upload(agent, FAKE_JPEG, 'me.jpg');
+  const viewer = await loginAs(app, { setupComplete: true });
+
+  const response = await viewer.get(`/photos/${photoFilename(agent.user.id)}`);
+
+  assert.strictEqual(response.status, 200);
+  assert.match(response.headers['content-type'], /image\/jpeg/);
+  assert.deepStrictEqual(response.body, FAKE_JPEG);
+});
+
+// 12. NORMAL CASE: your own profile links to the upload page, with the
+// right words; someone else's profile does not
+test('only your own profile has the Add or Change photo link', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const other = await loginAs(app, { setupComplete: true });
+
+  const before = await agent.get(`/profile/${agent.user.id}`);
+  await upload(agent, FAKE_JPEG, 'me.jpg');
+  const after = await agent.get(`/profile/${agent.user.id}`);
+  const othersPage = await other.get(`/profile/${agent.user.id}`);
+
+  assert.match(before.text, /<a href="\/photo">Add a photo<\/a>/);
+  assert.match(after.text, /<a href="\/photo">Change photo<\/a>/);
+  assert.doesNotMatch(othersPage.text, /href="\/photo"/);
+});
+
+// 13. DENIED ACCESS: photos are for logged-in users only
+test('a logged-out visitor cannot load a photo file', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  await upload(agent, FAKE_JPEG, 'me.jpg');
+
+  const response = await request(app).get(`/photos/${photoFilename(agent.user.id)}`);
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/login');
+});
+
+// 14. SECURITY: only file names saved on a user's row are ever sent
+test('made-up photo names and path tricks get 404', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+
+  // %2F is how a "/" is written inside an address, so this asks for
+  // "../app.js": an attempt to read a file outside the photo folder
+  for (const address of ['/photos/1-0000000000000000.jpg', '/photos/..%2Fapp.js', '/photos/app.db']) {
+    const response = await agent.get(address);
+    assert.strictEqual(response.status, 404, `${address} should be 404`);
+  }
+});

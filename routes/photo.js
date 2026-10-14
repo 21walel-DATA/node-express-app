@@ -4,11 +4,12 @@
 // is for logged-in users, and always acts on THEIR OWN photo: the user id
 // comes from the session, never from the form or the address.
 
+const path = require('path');
 const express = require('express');
 // multer reads files sent from a form (see "upload" below)
 const multer = require('multer');
 const db = require('../db');
-const { MAX_PHOTO_BYTES, isJpeg, savePhoto } = require('../photos');
+const { PHOTO_DIR, MAX_PHOTO_BYTES, isJpeg, savePhoto } = require('../photos');
 
 const router = express.Router();
 
@@ -74,6 +75,41 @@ router.post('/photo', (req, res) => {
 
     // Back to the user's own profile (Post/Redirect/Get)
     res.redirect(`/profile/${userId}`);
+  });
+});
+
+// 3. SHOW A PHOTO: GET /photos/7-3f9c2a1b8d4e6f00.jpg sends that image.
+// The photos are NOT in public/, because public/ is open to everyone and
+// profiles are for logged-in users only. This route sits behind the login
+// check, like the profile pages.
+router.get('/photos/:filename', (req, res) => {
+  const filename = req.params.filename;
+
+  // 3a. Only send a file whose name is saved on a user's row. Names come
+  // from savePhoto, so a made-up name (or a trick like '../app.js') matches
+  // nobody and is refused. sendStatus(404) answers "Not Found" with no page,
+  // which suits an image.
+  const owner = db
+    .prepare('SELECT id, setup_complete FROM users WHERE photo_filename = ?')
+    .get(filename);
+  if (!owner) {
+    return res.sendStatus(404);
+  }
+
+  // 3b. Match the profile page: a person who has not finished setup has no
+  // profile to show, so their photo is hidden from everyone but themselves
+  if (owner.setup_complete === 0 && owner.id !== res.locals.currentUser.id) {
+    return res.sendStatus(404);
+  }
+
+  // 3c. Send the file. sendFile needs a full path, so path.resolve turns
+  // a relative folder like 'photos' into one. It also sets the Content-Type
+  // to image/jpeg from the .jpg ending. If the file is missing from disk,
+  // the callback gets an error, and we answer "Not Found".
+  res.sendFile(path.resolve(PHOTO_DIR, filename), (error) => {
+    if (error && !res.headersSent) {
+      res.sendStatus(404);
+    }
   });
 });
 

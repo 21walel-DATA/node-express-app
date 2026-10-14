@@ -22,7 +22,14 @@
         because the name straight after it already says the same thing.
         circleColour is 1 to 5, picked from the person's id, and the
         colour-1 to colour-5 classes in style.css give the colours. %>
-    <span class="initials colour-<%= circleColour %>" aria-hidden="true"><%= initials %></span>
+    <%# Feature 07: show the photo when there is one, otherwise the circle.
+        alt="" for the same reason as aria-hidden on the circle: the name
+        straight after it already says who this is. %>
+    <% if (profile.photo_filename) { %>
+      <img class="profile-photo" src="/photos/<%= profile.photo_filename %>" alt="">
+    <% } else { %>
+      <span class="initials colour-<%= circleColour %>" aria-hidden="true"><%= initials %></span>
+    <% } %>
     <div>
       <h1><%= profile.name %></h1>
       <%# A user may have no course; show it only when there is one %>
@@ -34,7 +41,11 @@
 
   <% if (isOwnProfile) { %>
     <%# Only on your own page. The form always edits the logged-in user. %>
-    <p><a href="/profile/edit">Edit my profile</a></p>
+    <p>
+      <a href="/profile/edit">Edit my profile</a>
+      <%# Feature 07: the photo upload page %>
+      &middot; <a href="/photo"><%= profile.photo_filename ? 'Change photo' : 'Add a photo' %></a>
+    </p>
   <% } %>
 
   <%# The bio and business idea are optional, so show each only if filled in.
