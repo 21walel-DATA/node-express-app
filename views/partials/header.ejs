@@ -20,6 +20,24 @@
   <header class="site-header">
     <div class="container">
       <a class="site-name" href="/">Bootcamp Connect</a>
+
+      <%# The links change with who is looking. currentUser is set for every
+          page by loadCurrentUser in middleware/auth.js: it is the logged-in
+          user, or null when nobody is logged in.
+          aria-label names this group of links for screen readers. %>
+      <nav class="site-nav" aria-label="Main">
+        <% if (currentUser) { %>
+          <span class="site-nav-name"><%= currentUser.name %></span>
+          <%# Logging out is a form, not a link, because it must be a POST
+              request (see the logout route in routes/auth.js) %>
+          <form method="post" action="/logout">
+            <button type="submit" class="link-button">Log out</button>
+          </form>
+        <% } else { %>
+          <a href="/login">Log in</a>
+          <a href="/register">Register</a>
+        <% } %>
+      </nav>
     </div>
   </header>
 

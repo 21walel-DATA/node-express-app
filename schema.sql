@@ -142,7 +142,24 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 
 -- ---------------------------------------------------------
--- 6. STARTING ROWS
+-- 6. LOGIN SESSIONS
+-- ---------------------------------------------------------
+
+-- One row per browser that has a session. sessionStore.js reads and writes
+-- this table. Keeping sessions in the database (not in memory) means users
+-- stay logged in when the app restarts or is redeployed.
+CREATE TABLE IF NOT EXISTS sessions (
+  -- The random session id that is also stored in the browser's cookie
+  sid TEXT PRIMARY KEY,
+  -- The session's data (for example which user is logged in), saved as JSON text
+  data TEXT NOT NULL,
+  -- When the session stops being valid, as milliseconds since 1 January 1970
+  -- (the same number JavaScript's Date.now() gives)
+  expires_at INTEGER NOT NULL
+);
+
+-- ---------------------------------------------------------
+-- 7. STARTING ROWS
 -- ---------------------------------------------------------
 
 -- The five "looking for" options. INSERT OR IGNORE skips a row whose code

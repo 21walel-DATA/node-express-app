@@ -17,6 +17,7 @@
   --color-muted: #555555;     /* less important text */
   --color-accent: #0b5cad;    /* links and buttons */
   --color-border: #c9cfd6;    /* lines and box edges */
+  --color-error: #b3261e;     /* the edge of error boxes */
 }
 
 /* Dark mode colours. This block applies only when the person's device is
@@ -29,6 +30,7 @@
     --color-muted: #b0b6bd;
     --color-accent: #8ab4f8;
     --color-border: #3a4047;
+    --color-error: #f2b8b5;
   }
 }
 
@@ -56,6 +58,13 @@ h1 {
   font-size: 2rem;
   line-height: 1.2;
   margin: 0 0 0.5rem;
+}
+
+/* Section headings inside a page */
+h2 {
+  font-size: 1.375rem;
+  line-height: 1.3;
+  margin: 2rem 0 0.5rem;
 }
 
 a {
@@ -137,4 +146,131 @@ main.container {
   border-left: 4px solid var(--color-accent);
   border-radius: 4px;
   padding: 0.75rem 1rem;
+}
+
+/* ---------------------------------------------------------
+   5. FORMS
+   --------------------------------------------------------- */
+
+/* Keeps forms narrow enough to read comfortably */
+.form {
+  max-width: 28rem;
+}
+
+/* One label and its field, with space before the next one */
+.form-field {
+  margin-bottom: 1.25rem;
+}
+
+/* Labels sit on their own line above the field */
+.form-field label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+/* A short explanation under a label */
+.hint {
+  color: var(--color-muted);
+  margin: 0 0 0.25rem;
+}
+
+/* Text boxes and dropdowns share one look. font: inherit makes them use
+   the page's font and size instead of the browser's smaller default. */
+.form-field input,
+.form-field select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+
+/* A checkbox with its label beside it. Flex puts them on one row. */
+.form-check {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+}
+
+/* Make the checkbox a little larger and line it up with the first line
+   of the label text */
+.form-check input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+
+/* The main button on a form. The text uses the page background colour so
+   it contrasts with the accent colour in both light and dark mode. */
+.button {
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-bg);
+  background: var(--color-accent);
+  border: 0;
+  border-radius: 4px;
+  padding: 0.6rem 1.25rem;
+  cursor: pointer;
+}
+
+/* A box listing what was wrong with a submitted form */
+.error-box {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-error);
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.error-box p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.error-box ul {
+  margin: 0.25rem 0 0;
+}
+
+/* ---------------------------------------------------------
+   6. NAVIGATION
+   --------------------------------------------------------- */
+
+/* Put the site name on the left and the links on the right.
+   flex-wrap lets the links drop to a second line on a narrow screen. */
+.site-header .container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+/* The links sit in a row with space between them */
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* The logged-in person's name */
+.site-nav-name {
+  color: var(--color-muted);
+}
+
+/* A button that looks like a link. Used for Log out, which has to be a
+   button inside a form but should look like the links beside it. */
+.link-button {
+  font: inherit;
+  color: var(--color-accent);
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
 }
