@@ -184,16 +184,13 @@ Echo (`echo@example.com`, Business development), and Walied's admin account.
 with Koulla's go-ahead; "Koulla" means checked by eye; "Walied" means
 reported by Walied.
 
-**Result so far: 19 passed, 4 still open.** The open ones are listed first.
+**Result so far: 22 passed, 1 being tested.** The open one is listed first.
 
 ### Still open
 
 | # | Feature | Check | Status |
 |---|---|---|---|
-| 2 | 00 | Data is still there after a redeploy | **Open.** On the live site, Delta's connection request got number 1, although requests were made there earlier in the evening (the 04 check) and request numbers are never reused. The live database may have been reset or replaced. Asked Walied whether he reset it; no answer yet |
-| 20 | All | Header links to Connections (`/connections`) and Account (`/account`) | **Open.** Not on `main` yet (Walied's file, `views/partials/header.ejs`). Both pages can be reached from "My profile" |
-| 22 | 05, 06 | An admin removes Echo; Echo cannot log in and is gone from Delta's matches | **Open.** At 23:01 Echo could still log in, and was still in Delta's matches and connections |
-| 23 | Tidy-up | Delete Delta and Echo, and the test skill and course | **Open.** Waits for 22 |
+| 2 | 00 | Data is still there after a redeploy | **Being tested.** On the live site, Delta's connection request got number 1, although requests were made there earlier in the evening (the 04 check) and request numbers are never reused, so the live database may have been reset at some point. Koulla's browser history shows the 04 and 06 checks used this same address. Direct test: Test Persist (`persist@example.com`) was registered at 23:35, before the redeploy that merging this change causes; logging in as Test Persist after that redeploy shows whether data survives |
 
 ### Passed
 
@@ -218,6 +215,9 @@ reported by Walied.
 | 18 | 07 | A PNG, or a file over 2 MB, is refused with a clear message | Koulla | Passed |
 | 19 | 06 | Delta changes her name on the Account page | Claude | Passed |
 | 21 | All | Usable at phone width and with the keyboard only | Koulla | Passed |
+| 20 | All | Header links to Connections and Account, logged-in users only | Claude | Passed (pull request #15, added by Koulla with Walied's agreement; both links seen and opened on the live site at 23:35) |
+| 22 | 05, 06 | An admin removes Echo; Echo cannot log in and is gone from Delta's matches | Walied, Claude | Passed (re-checked at 23:15) |
+| 23 | Tidy-up | Delta and Echo deleted, no test skill or course left | Claude, Walied | Passed (Delta deleted with "Delete my account"; no skill or course named "Live check" left) |
 
 Covered by the automated tests rather than by clicking: photo file tricks,
 changing someone else's photo, passwords stored scrambled, "No matches yet",
