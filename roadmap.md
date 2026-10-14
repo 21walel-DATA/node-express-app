@@ -173,3 +173,52 @@ The five brief essentials are never cut, only simplified.
 - [x] 06 Account page (A: change details, B: delete account)
 - [x] 07 Photo upload
 - [ ] 08 Basic blocking (if time)
+
+## Final live check (14 October 2026, evening)
+
+Every finish line from 00 to 07, checked at
+https://node-express-app-production.up.railway.app with two new test
+students, Test Delta (`delta@example.com`, Software development) and Test
+Echo (`echo@example.com`, Business development), and Walied's admin account.
+"Claude" means the check was done with page requests from Koulla's laptop,
+with Koulla's go-ahead; "Koulla" means checked by eye; "Walied" means
+reported by Walied.
+
+**Result so far: 19 passed, 4 still open.** The open ones are listed first.
+
+### Still open
+
+| # | Feature | Check | Status |
+|---|---|---|---|
+| 2 | 00 | Data is still there after a redeploy | **Open.** On the live site, Delta's connection request got number 1, although requests were made there earlier in the evening (the 04 check) and request numbers are never reused. The live database may have been reset or replaced. Asked Walied whether he reset it; no answer yet |
+| 20 | All | Header links to Connections (`/connections`) and Account (`/account`) | **Open.** Not on `main` yet (Walied's file, `views/partials/header.ejs`). Both pages can be reached from "My profile" |
+| 22 | 05, 06 | An admin removes Echo; Echo cannot log in and is gone from Delta's matches | **Open.** At 23:01 Echo could still log in, and was still in Delta's matches and connections |
+| 23 | Tidy-up | Delete Delta and Echo, and the test skill and course | **Open.** Waits for 22 |
+
+### Passed
+
+| # | Feature | Check | Who | Result |
+|---|---|---|---|---|
+| 1 | 00 | Readable in light and dark mode | Koulla | Passed |
+| 3 | 01 | Registering without the privacy tick is refused | Claude | Passed |
+| 4 | 01 | Register Delta, log out, log back in | Claude | Passed |
+| 5 | 01 | A wrong password is refused with a clear message | Claude | Passed |
+| 6 | 01 | Registering `DELTA@example.com` again is refused (capitals do not matter) | Claude | Passed |
+| 7 | 01 | A logged-out visitor opening `/connections` is sent to the login page | Claude | Passed |
+| 8 | 02 | A new user opening `/`, `/connections` or `/account` is sent to the profile form | Claude | Passed |
+| 9 | 02 | Two "looking for" ticks are both saved and shown | Claude, Koulla | Passed |
+| 10 | 02 | Someone else's profile shows no email and no Edit link | Claude | Passed |
+| 11 | 03 | Register Echo as "Be a mentor" | Claude | Passed |
+| 12 | 03 | Delta sees 5 matches with reasons, not herself; Echo is top, with "You are looking for a mentor and they want to be one" | Claude, Koulla | Passed |
+| 13 | 04 | Request, accept, and one message each way, with the right UK time | Claude | Passed |
+| 14 | 05 | A skill added by the admin appears on the profile form | Walied | Reported passed |
+| 15 | 05 | A course added by the admin appears on the Register page | Walied | Reported passed |
+| 16 | 05 | A non-admin opening `/admin` is refused (403) | Claude | Passed |
+| 17 | 07 | A JPEG under 2 MB shows on the profile | Koulla | Passed |
+| 18 | 07 | A PNG, or a file over 2 MB, is refused with a clear message | Koulla | Passed |
+| 19 | 06 | Delta changes her name on the Account page | Claude | Passed |
+| 21 | All | Usable at phone width and with the keyboard only | Koulla | Passed |
+
+Covered by the automated tests rather than by clicking: photo file tricks,
+changing someone else's photo, passwords stored scrambled, "No matches yet",
+and someone else's id sent in a form.
