@@ -9,7 +9,7 @@ const express = require('express');
 // multer reads files sent from a form (see "upload" below)
 const multer = require('multer');
 const db = require('../db');
-const { PHOTO_DIR, MAX_PHOTO_BYTES, isJpeg, savePhoto } = require('../photos');
+const { PHOTO_DIR, MAX_PHOTO_BYTES, isJpeg, savePhoto, deletePhoto } = require('../photos');
 
 const router = express.Router();
 
@@ -68,10 +68,17 @@ router.post('/photo', (req, res) => {
       return renderPhotoPage(res, ['The photo must be a JPEG image (.jpg or .jpeg).'], 400);
     }
 
-    // 2d. Save the file, then remember its name on the user's row
+    // 2d. Note the name of the photo they had before, if any
     const userId = res.locals.currentUser.id;
+    const oldFilename = db.prepare('SELECT photo_filename FROM users WHERE id = ?').get(userId).photo_filename;
+
+    // 2e. Save the new file, then remember its name on the user's row
     const filename = savePhoto(userId, req.file.buffer);
     db.prepare('UPDATE users SET photo_filename = ? WHERE id = ?').run(filename, userId);
+
+    // 2f. Only now delete the old file, so if anything above had failed,
+    // the user would still have their old photo
+    deletePhoto(oldFilename);
 
     // Back to the user's own profile (Post/Redirect/Get)
     res.redirect(`/profile/${userId}`);

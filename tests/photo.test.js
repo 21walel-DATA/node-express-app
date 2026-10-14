@@ -13,6 +13,7 @@ const app = require('./helpers');
 const db = require('../db');
 const { loginAs } = require('./loginHelper');
 const { PHOTO_DIR, MAX_PHOTO_BYTES } = require('../photos');
+const { deleteUser } = require('../accounts');
 
 // ---------------------------------------------------------
 // PRETEND FILES
@@ -230,4 +231,63 @@ test('made-up photo names and path tricks get 404', async () => {
     const response = await agent.get(address);
     assert.strictEqual(response.status, 404, `${address} should be 404`);
   }
+});
+
+// ---------------------------------------------------------
+// DELETING PHOTO FILES
+// ---------------------------------------------------------
+
+// Says whether a photo file is in the photo folder
+function fileExists(filename) {
+  return fs.existsSync(path.join(PHOTO_DIR, filename));
+}
+
+// 15. NORMAL CASE: a new photo replaces the old one, and the old file is
+// deleted, so old photos do not pile up in the volume
+test('uploading a new photo deletes the old file', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  await upload(agent, FAKE_JPEG, 'first.jpg');
+  const oldFilename = photoFilename(agent.user.id);
+  assert.ok(fileExists(oldFilename));
+
+  await upload(agent, FAKE_JPEG, 'second.jpg');
+  const newFilename = photoFilename(agent.user.id);
+
+  assert.notStrictEqual(newFilename, oldFilename);
+  assert.ok(fileExists(newFilename));
+  assert.strictEqual(fileExists(oldFilename), false);
+});
+
+// 16. NORMAL CASE: a refused upload keeps the photo the user already had
+test('a refused upload keeps the existing photo', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  await upload(agent, FAKE_JPEG, 'good.jpg');
+  const filename = photoFilename(agent.user.id);
+
+  await upload(agent, FAKE_PNG, 'bad.jpg');
+
+  assert.strictEqual(photoFilename(agent.user.id), filename);
+  assert.ok(fileExists(filename));
+});
+
+// 17. NORMAL CASE (finish line): deleting the account removes the photo file
+test('deleting an account deletes its photo file', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  await upload(agent, FAKE_JPEG, 'me.jpg');
+  const filename = photoFilename(agent.user.id);
+
+  assert.strictEqual(deleteUser(agent.user.id), true);
+
+  assert.strictEqual(fileExists(filename), false);
+});
+
+// 18. EDGE CASE: a photo file already missing from disk does not stop the
+// account being deleted
+test('deleting an account still works if its photo file is already gone', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  await upload(agent, FAKE_JPEG, 'me.jpg');
+  fs.rmSync(path.join(PHOTO_DIR, photoFilename(agent.user.id)));
+
+  assert.strictEqual(deleteUser(agent.user.id), true);
+  assert.strictEqual(db.prepare('SELECT id FROM users WHERE id = ?').get(agent.user.id), undefined);
 });

@@ -59,5 +59,23 @@ function savePhoto(userId, file) {
   return filename;
 }
 
+// ---------------------------------------------------------
+// 4. DELETING A PHOTO
+// ---------------------------------------------------------
+
+// Deletes a photo file from PHOTO_DIR. Used when a user replaces their
+// photo (the old file) and when an account is deleted (accounts.js).
+// filename always comes from the database (users.photo_filename), never
+// from the address bar or a form.
+// It does nothing when filename is empty (the user had no photo).
+// force: true means "no error if the file is already gone", so a missing
+// file never stops an account from being deleted.
+function deletePhoto(filename) {
+  if (!filename) {
+    return;
+  }
+  fs.rmSync(path.join(PHOTO_DIR, filename), { force: true });
+}
+
 // Share the settings and functions
-module.exports = { PHOTO_DIR, MAX_PHOTO_BYTES, isJpeg, savePhoto };
+module.exports = { PHOTO_DIR, MAX_PHOTO_BYTES, isJpeg, savePhoto, deletePhoto };

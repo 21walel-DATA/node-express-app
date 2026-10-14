@@ -8,6 +8,7 @@
 // Both must delete exactly the same things (PRD section 4.6).
 
 const db = require('./db');
+const { deletePhoto } = require('./photos');
 
 // ---------------------------------------------------------
 // 1. DELETE A USER
@@ -29,13 +30,27 @@ const db = require('./db');
 // load: loadCurrentUser in middleware/auth.js finds no user for the id in
 // their session, and forgets it.
 //
-// TODO (feature 07, photo upload): also delete their photo file from the
-// volume here, so every way of deleting an account removes it.
+// Their photo file (feature 07) is not in the database, so the cascade
+// cannot reach it. It is deleted here instead, so every way of deleting an
+// account removes it.
 function deleteUser(userId) {
+  // 1a. Note their photo's file name BEFORE the row (and the name) is gone.
+  // "?." means "if there is no such user, give undefined instead of an error".
+  const photoFilename = db
+    .prepare('SELECT photo_filename FROM users WHERE id = ?')
+    .get(userId)?.photo_filename;
+
+  // 1b. Delete the user, and through the cascade everything listed above
   const result = db.prepare('DELETE FROM users WHERE id = ?').run(userId);
 
   // result.changes is how many rows the DELETE removed: 1 or 0
-  return result.changes === 1;
+  if (result.changes === 0) {
+    return false;
+  }
+
+  // 1c. Delete the photo file last, once the account is surely gone
+  deletePhoto(photoFilename);
+  return true;
 }
 
 // Share the function with the routes and the tests
