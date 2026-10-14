@@ -7,6 +7,8 @@
 
 const express = require('express');
 const db = require('../db');
+// The shared "delete a user" function, also used by the Account page (06)
+const { deleteUser } = require('../accounts');
 
 const router = express.Router();
 
@@ -228,6 +230,70 @@ for (const list of LISTS) {
     res.redirect(`/admin/${list.path}`);
   });
 }
+
+// ---------------------------------------------------------
+// 4. USER ACCOUNTS
+// ---------------------------------------------------------
+
+// Fetches one user's name, or undefined when there is no such user
+const findUserQuery = db.prepare('SELECT id, name FROM users WHERE id = ?');
+
+// Shows the users page. Used for the first visit, and again (with an error
+// status) when a removal was refused.
+function renderUsers(res, errors = [], status = 200) {
+  // Every account, in name order. The email is shown so admins can tell
+  // two people with the same name apart; this page is for admins only.
+  // LEFT JOIN keeps admins, who have no course.
+  const users = db
+    .prepare(
+      `SELECT users.id, users.name, users.email, users.is_admin, courses.name AS course
+       FROM users
+       LEFT JOIN courses ON courses.id = users.course_id
+       ORDER BY users.name`
+    )
+    .all();
+
+  res.status(status).render('admin-users', { users, errors });
+}
+
+// 5. SHOW USERS: GET /admin/users lists every account with a Remove link
+router.get('/users', (req, res) => {
+  renderUsers(res);
+});
+
+// 6. CONFIRM REMOVAL: GET /admin/users/5/remove asks "are you sure?"
+// Removing an account cannot be undone, so the Remove link leads here
+// first, and only the button on this page really removes it.
+router.get('/users/:id/remove', (req, res) => {
+  const user = findUserQuery.get(Number(req.params.id));
+
+  // 404 is the HTTP status code for "Not Found"
+  if (!user) {
+    return renderUsers(res, ['That account no longer exists.'], 404);
+  }
+
+  res.render('admin-user-remove', { user });
+});
+
+// 7. REMOVE A USER: POST /admin/users/5/remove, from the confirm page
+router.post('/users/:id/remove', (req, res) => {
+  const id = Number(req.params.id);
+
+  // 7a. An admin cannot remove their own account here. That way the site
+  // can never be left with nobody able to open the admin pages.
+  if (id === res.locals.currentUser.id) {
+    return renderUsers(res, ['You cannot remove your own account here.'], 400);
+  }
+
+  // 7b. Delete them, with the shared function (see accounts.js)
+  const deleted = deleteUser(id);
+  if (!deleted) {
+    return renderUsers(res, ['That account no longer exists.'], 404);
+  }
+
+  // Back to the users page (Post/Redirect/Get)
+  res.redirect('/admin/users');
+});
 
 // Share the router with app.js
 module.exports = router;

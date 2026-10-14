@@ -1,0 +1,45 @@
+<%# views/admin-users.ejs
+    The admin page listing every account. routes/admin.js passes in:
+      users   every user, each with id, name, email, is_admin and course
+      errors  messages to show when a removal was refused %>
+<%- include('partials/header', { title: 'Users' }) %>
+
+<p><a href="/admin">&larr; Admin</a></p>
+
+<h1>Users</h1>
+
+<p class="hint">Removing an account also deletes the person's profile, connection requests and conversations. It cannot be undone.</p>
+
+<%# role="alert" makes a screen reader read the box out straight away %>
+<% if (errors.length > 0) { %>
+  <div class="error-box" role="alert">
+    <p>That did not work:</p>
+    <ul>
+      <% errors.forEach((error) => { %>
+        <li><%= error %></li>
+      <% }) %>
+    </ul>
+  </div>
+<% } %>
+
+<ul class="admin-rows">
+  <% for (const user of users) { %>
+    <li>
+      <span>
+        <%= user.name %>
+        <%# Grey details: email, then the course, or "Admin" for admins %>
+        <span class="hint">&middot; <%= user.email %> &middot; <%= user.is_admin === 1 ? 'Admin' : (user.course || 'No course') %></span>
+      </span>
+      <%# No Remove link on the admin's own row (see the remove route) %>
+      <% if (user.id !== currentUser.id) { %>
+        <%# A link is fine here: it only opens the "are you sure?" page,
+            which changes nothing. The removal itself is a form. %>
+        <a href="/admin/users/<%= user.id %>/remove" aria-label="Remove <%= user.name %>">Remove</a>
+      <% } else { %>
+        <span class="hint">You</span>
+      <% } %>
+    </li>
+  <% } %>
+</ul>
+
+<%- include('partials/footer') %>
