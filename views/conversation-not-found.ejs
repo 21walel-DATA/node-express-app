@@ -1,0 +1,13 @@
+<%# views/conversation-not-found.ejs
+    Shown with the code 404 for any conversation the logged-in user may not
+    open: someone else's, one that is not accepted, or one that does not
+    exist. They all look the same on purpose, so a snooper cannot tell
+    them apart (decision 4 in specs/04-messaging.md). Koulla's wording. %>
+
+<%- include('partials/header', { title: 'Conversation not found' }) %>
+
+<h1>Oops, you have been misdirected</h1>
+<p>Apologies, this conversation isn't available.</p>
+<p><a href="/connections">Back to my connections</a></p>
+
+<%- include('partials/footer') %>

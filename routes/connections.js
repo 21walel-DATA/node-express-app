@@ -1,12 +1,35 @@
 // routes/connections.js
 // Routes for feature 04, connection requests (see specs/04-messaging.md).
-// For now this holds the Connections page and the "send a request"
-// button's route. Accept and decline come in the next build step.
+// The Connections page, sending, accepting and declining requests, and the
+// conversation page. Sending a message comes in the next build step.
 
 const express = require('express');
 const db = require('../db');
 
 const router = express.Router();
+
+// ---------------------------------------------------------
+// HELPERS
+// ---------------------------------------------------------
+
+// Turns a time from the database into UK clock time for the page.
+// '2026-10-14 20:51:09' -> '14 Oct 2026, 21:51'
+// The database saves times in UTC (the same as UK winter time) as text.
+// Adding 'T' and 'Z' turns that text into the standard way of writing a
+// UTC time, so JavaScript reads it correctly. toLocaleString then shows it
+// as a UK date ('en-GB') in UK time ('Europe/London'), which moves it on an
+// hour in British Summer Time. Both are built into Node: no library.
+function formatTime(databaseTime) {
+  const time = new Date(databaseTime.replace(' ', 'T') + 'Z');
+  return time.toLocaleString('en-GB', {
+    timeZone: 'Europe/London',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 // ---------------------------------------------------------
 // CONNECTION ROUTES
@@ -53,9 +76,11 @@ router.get('/connections', (req, res) => {
   // Accepted requests, whoever asked. CASE works like an "if" inside SQL:
   // if you are the sender, the other person is the receiver, and the other
   // way round. A to Z by name.
+  // requestId is also the conversation's number, for its link.
   const connected = db
     .prepare(
-      `SELECT users.id, users.name, courses.name AS course
+      `SELECT connection_requests.id AS requestId,
+              users.id, users.name, courses.name AS course
        FROM connection_requests
        JOIN users ON users.id = CASE
          WHEN connection_requests.sender_id = ? THEN connection_requests.receiver_id
@@ -158,6 +183,55 @@ router.post('/connections/:id/accept', (req, res) => {
 // 4. DECLINE A REQUEST: the Decline button on the Connections page
 router.post('/connections/:id/decline', (req, res) => {
   answerRequest(req, res, 'declined');
+});
+
+// 5. CONVERSATION PAGE: the messages between two connected people.
+// ":id" is the accepted request's id number: one request, one conversation.
+router.get('/conversations/:id', (req, res) => {
+  const userId = res.locals.currentUser.id;
+
+  // Only whole numbers can be conversation numbers.
+  // Every "no" in this route shows the same "misdirected" page with 404, so
+  // a snooper cannot tell "not yours" from "does not exist" (decision 4).
+  if (!/^\d+$/.test(req.params.id)) {
+    return res.status(404).render('conversation-not-found');
+  }
+  const conversationId = Number(req.params.id);
+
+  // The rules are inside the question, like answerRequest above: find this
+  // request ONLY if it is accepted AND the logged-in user is one of its two
+  // people. Anyone else gets nothing back.
+  const conversation = db
+    .prepare(
+      `SELECT sender_id, receiver_id FROM connection_requests
+       WHERE id = ? AND status = 'accepted'
+         AND (sender_id = ? OR receiver_id = ?)`
+    )
+    .get(conversationId, userId, userId);
+  if (!conversation) {
+    return res.status(404).render('conversation-not-found');
+  }
+
+  // The other person is whichever of the two is not the logged-in user
+  const otherId =
+    conversation.sender_id === userId ? conversation.receiver_id : conversation.sender_id;
+  const otherPerson = db.prepare('SELECT id, name FROM users WHERE id = ?').get(otherId);
+
+  // The messages, oldest first, with each sender's name. id breaks a tie
+  // between two messages sent in the same second.
+  const messages = db
+    .prepare(
+      `SELECT messages.body, messages.created_at, users.name AS senderName
+       FROM messages
+       JOIN users ON users.id = messages.sender_id
+       WHERE messages.request_id = ?
+       ORDER BY messages.created_at, messages.id`
+    )
+    .all(conversationId)
+    // Add the UK time to each message, ready for the page
+    .map((message) => ({ ...message, time: formatTime(message.created_at) }));
+
+  res.render('conversation', { conversationId, otherPerson, messages });
 });
 
 // Share the router with app.js

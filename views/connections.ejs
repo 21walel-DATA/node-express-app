@@ -4,7 +4,8 @@
       received   waiting requests sent TO the logged-in user (each also
                  has requestId, for the Accept and Decline buttons)
       sent       requests the logged-in user sent (waiting or declined)
-      connected  accepted requests, whoever asked
+      connected  accepted requests, whoever asked (each also has
+                 requestId, which is the conversation's number)
     Each list is a section with an id, so the tests can check that a name
     is in the right list. %>
 
@@ -70,10 +71,12 @@
     <% } else { %>
       <ul class="person-list">
         <% for (const person of connected) { %>
-          <%# The "Open conversation" link comes in build step 4 %>
           <li>
             <a href="/profile/<%= person.id %>"><%= person.name %></a>
             <% if (person.course) { %><span class="person-course"><%= person.course %></span><% } %>
+            <%# requestId is also the conversation's number. aria-label
+                makes a screen reader say whose conversation it is. %>
+            <a class="person-actions" href="/conversations/<%= person.requestId %>" aria-label="Open conversation with <%= person.name %>">Open conversation</a>
           </li>
         <% } %>
       </ul>

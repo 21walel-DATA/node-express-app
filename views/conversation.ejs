@@ -1,0 +1,39 @@
+<%# views/conversation.ejs
+    One conversation, at /conversations/:id. routes/connections.js passes in:
+      conversationId  the accepted request's id number
+      otherPerson     the other person in it (id, name)
+      messages        oldest first: body, senderName, time (UK time) and
+                      created_at (the time as saved, in UTC)
+    The route has already checked that the logged-in user is one of the two
+    people, so this page never has to. %>
+
+<%- include('partials/header', { title: 'Conversation with ' + otherPerson.name }) %>
+
+<h1>Conversation with <a href="/profile/<%= otherPerson.id %>"><%= otherPerson.name %></a></h1>
+
+<p><a href="/connections">Back to my connections</a></p>
+
+<% if (messages.length === 0) { %>
+  <p>No messages yet. Say hello!</p>
+<% } else { %>
+  <%# ol is a numbered list: the right tag for messages in order %>
+  <ol class="message-list">
+    <% for (const message of messages) { %>
+      <li class="message">
+        <p class="message-meta">
+          <strong><%= message.senderName %></strong>
+          <%# datetime gives the exact time in a standard form for
+              computers; the text inside is for people %>
+          <time datetime="<%= message.created_at.replace(' ', 'T') %>Z"><%= message.time %></time>
+        </p>
+        <%# "print with =" shows the message as plain text, so anything a
+            user typed, even HTML, is never run as code %>
+        <p class="message-body"><%= message.body %></p>
+      </li>
+    <% } %>
+  </ol>
+<% } %>
+
+<%# The box for writing a new message comes in build step 5 %>
+
+<%- include('partials/footer') %>

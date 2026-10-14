@@ -38,22 +38,23 @@
   <% } %>
 
   <%# Connecting (feature 04). Only on someone else's page.
-      connectionStatus comes from getConnectionStatus in routes/profile.js. %>
+      connection comes from getConnectionStatus in routes/profile.js:
+      its status says what to show, and requestId is the conversation's
+      number. %>
   <% if (!isOwnProfile) { %>
-    <% if (connectionStatus === 'none') { %>
+    <% if (connection.status === 'none') { %>
       <%# A form, not a link, because pressing it saves something %>
       <form method="post" action="/connections/request/<%= profile.id %>">
         <button type="submit" class="button">Send connection request</button>
       </form>
-    <% } else if (connectionStatus === 'sent') { %>
+    <% } else if (connection.status === 'sent') { %>
       <p class="connection-status">Request sent</p>
-    <% } else if (connectionStatus === 'received') { %>
+    <% } else if (connection.status === 'received') { %>
       <p class="connection-status">They have sent you a request. <a href="/connections">See your connections</a></p>
-    <% } else if (connectionStatus === 'declined') { %>
+    <% } else if (connection.status === 'declined') { %>
       <p class="connection-status">You declined their request</p>
-    <% } else if (connectionStatus === 'connected') { %>
-      <%# The "Open conversation" link comes in build step 4 %>
-      <p class="connection-status">You are connected</p>
+    <% } else if (connection.status === 'connected') { %>
+      <p class="connection-status">You are connected. <a href="/conversations/<%= connection.requestId %>">Open conversation</a></p>
     <% } %>
   <% } %>
 

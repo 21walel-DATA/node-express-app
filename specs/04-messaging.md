@@ -107,7 +107,8 @@ One small step at a time, test first, one commit each.
 ## Files
 
 - New: `routes/connections.js`, `views/connections.ejs`,
-  `views/conversation.ejs`, `tests/connections.test.js`,
+  `views/conversation.ejs`, `views/conversation-not-found.ejs` (the
+  "misdirected" page), `tests/connections.test.js`,
   `tests/messages.test.js`.
 - Small changes: `views/profile.ejs` (Koulla's), `public/style.css` (a new
   section at the bottom), `app.js` (a marked place, asked for from Walied),
@@ -128,6 +129,9 @@ One small step at a time, test first, one commit each.
 6. The two `app.js` lines for this feature go inside Koulla's own FEATURE 02
    marked place, just under the profile routes, so the setup gate covers
    them. No need to wait for Walied.
+7. Message times are shown in **UK time**, for example "14 Oct 2026, 21:51".
+   The database saves UTC, so the page moves it on an hour in British Summer
+   Time. This uses JavaScript's built-in date tools, no library.
 
 ## Asked of Walied
 
@@ -145,11 +149,12 @@ One small step at a time, test first, one commit each.
    one already answered, or one that does not exist) changes nothing and
    sends the user back to `/connections`, the same way step 1 sends them
    back to the profile.
+4. The conversation page (reading). **Done** (`tests/messages.test.js`).
+   "Open conversation" links are on a connected profile and next to each
+   connection. No messages yet shows "No messages yet. Say hello!".
 
 ## Open questions
 
 - ~~**If you declined someone, can you later send them a request
   yourself?**~~ No (decision 5).
-- **How the message time is shown.** The database stores UTC time (the same
-  as UK winter time), so until the clocks go back on 25 October it is one
-  hour behind UK clocks. Decide at build step 4.
+- ~~**How the message time is shown.**~~ In UK time (decision 7).
