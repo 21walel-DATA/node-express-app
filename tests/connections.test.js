@@ -254,3 +254,121 @@ test('a user who has not finished setup is sent to the profile form instead', as
   assert.strictEqual(response.headers.location, '/profile/edit');
   assert.strictEqual(countRequests(agent.user.id, other.id), 0);
 });
+
+// ---------------------------------------------------------
+// 3. THE CONNECTIONS PAGE
+// ---------------------------------------------------------
+
+// Cuts one list out of the Connections page, so a test can check that a
+// name is in the RIGHT list, not just somewhere on the page.
+// Each list is a <section> with an id: received, sent or connected.
+function getSection(html, id) {
+  // [\s\S]*? means "any characters, as few as possible". Inside a `...`
+  // string each backslash must be written twice.
+  const found = html.match(new RegExp(`<section id="${id}"[^>]*>([\\s\\S]*?)</section>`));
+  // An empty text when the section is missing, so "doesNotMatch" still works
+  return found ? found[1] : '';
+}
+
+test('the Connections page with nothing on it shows "No connections yet"', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+
+  const response = await agent.get('/connections');
+
+  assert.strictEqual(response.status, 200);
+  assert.match(response.text, /No connections yet/);
+  // A way to find people: the dashboard
+  assert.match(response.text, /href="\/"/);
+});
+
+test('a waiting request to you is under "Requests to you"', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const asker = createUser({ name: 'Rita Received', setupComplete: true });
+  addRequest(asker.id, agent.user.id, 'pending');
+
+  const response = await agent.get('/connections');
+
+  const received = getSection(response.text, 'received');
+  assert.match(received, /Rita Received/);
+  // The name links to their profile
+  assert.match(received, new RegExp(`href="/profile/${asker.id}"`));
+  assert.doesNotMatch(response.text, /No connections yet/);
+});
+
+test('a request you declined is no longer listed anywhere', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const asker = createUser({ name: 'Dora Declined', setupComplete: true });
+  addRequest(asker.id, agent.user.id, 'declined');
+
+  const response = await agent.get('/connections');
+
+  assert.strictEqual(response.status, 200);
+  assert.doesNotMatch(response.text, /Dora Declined/);
+  assert.match(response.text, /No connections yet/);
+});
+
+test('requests you sent are under "Requests you sent", even declined ones', async () => {
+  // Decision 2: the sender is never told "no"
+  const agent = await loginAs(app, { setupComplete: true });
+  const waiting = createUser({ name: 'Wendy Waiting', setupComplete: true });
+  const declined = createUser({ name: 'Nadia Nolan', setupComplete: true });
+  addRequest(agent.user.id, waiting.id, 'pending');
+  addRequest(agent.user.id, declined.id, 'declined');
+
+  const response = await agent.get('/connections');
+
+  const sent = getSection(response.text, 'sent');
+  assert.match(sent, /Wendy Waiting/);
+  assert.match(sent, /Nadia Nolan/);
+  assert.doesNotMatch(response.text, /declined/i);
+});
+
+test('an accepted request is under "Your connections" for both people', async () => {
+  const sender = await loginAs(app, { name: 'Sam Sender', setupComplete: true });
+  const receiver = await loginAs(app, { name: 'Rob Receiver', setupComplete: true });
+  addRequest(sender.user.id, receiver.user.id, 'accepted');
+
+  const senderPage = await sender.get('/connections');
+  const receiverPage = await receiver.get('/connections');
+
+  assert.match(getSection(senderPage.text, 'connected'), /Rob Receiver/);
+  assert.match(getSection(receiverPage.text, 'connected'), /Sam Sender/);
+  // And not in the other lists
+  assert.doesNotMatch(getSection(senderPage.text, 'sent'), /Rob Receiver/);
+  assert.doesNotMatch(getSection(receiverPage.text, 'received'), /Sam Sender/);
+});
+
+test('the Connections page never shows other people\'s requests', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const other1 = createUser({ name: 'Olive Outsider', setupComplete: true });
+  const other2 = createUser({ name: 'Otto Outsider', setupComplete: true });
+  const other3 = createUser({ name: 'Oscar Outsider', setupComplete: true });
+  addRequest(other1.id, other2.id, 'pending');
+  addRequest(other2.id, other3.id, 'accepted');
+
+  const response = await agent.get('/connections');
+
+  assert.strictEqual(response.status, 200);
+  assert.doesNotMatch(response.text, /Outsider/);
+  assert.match(response.text, /No connections yet/);
+});
+
+test('the Connections page never shows email addresses', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  const asker = createUser({ email: 'secret-asker@example.com', setupComplete: true });
+  addRequest(asker.id, agent.user.id, 'pending');
+
+  const response = await agent.get('/connections');
+
+  // The page loads and lists the person, but without their email
+  assert.strictEqual(response.status, 200);
+  assert.match(getSection(response.text, 'received'), new RegExp(`/profile/${asker.id}"`));
+  assert.doesNotMatch(response.text, /secret-asker@example\.com/);
+});
+
+test('a logged-out visitor cannot see the Connections page', async () => {
+  const response = await request(app).get('/connections');
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/login');
+});

@@ -138,6 +138,9 @@ One small step at a time, test first, one commit each.
 ## Progress
 
 1. Send a request from the profile page. **Done** (`tests/connections.test.js`).
+2. The Connections page, with its three lists. **Done.** If all three are
+   empty it says "No connections yet" with a link to the dashboard; an
+   empty list on its own says "None right now" (or "None yet").
 
 ## Open questions
 

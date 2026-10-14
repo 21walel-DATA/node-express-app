@@ -1,0 +1,74 @@
+<%# views/connections.ejs
+    The Connections page, at /connections. routes/connections.js passes in
+    three lists of people (id, name, course):
+      received   waiting requests sent TO the logged-in user
+      sent       requests the logged-in user sent (waiting or declined)
+      connected  accepted requests, whoever asked
+    Each list is a section with an id, so the tests can check that a name
+    is in the right list. %>
+
+<%- include('partials/header', { title: 'My connections' }) %>
+
+<h1>My connections</h1>
+
+<% if (received.length === 0 && sent.length === 0 && connected.length === 0) { %>
+  <%# Nothing at all yet: point the user to their matches %>
+  <p>No connections yet. <a href="/">Find people on your dashboard</a> and send them a request from their profile.</p>
+
+<% } else { %>
+
+  <section id="received" aria-labelledby="received-heading">
+    <h2 id="received-heading">Requests to you</h2>
+    <% if (received.length === 0) { %>
+      <p>None right now.</p>
+    <% } else { %>
+      <ul class="person-list">
+        <% for (const person of received) { %>
+          <%# The Accept and Decline buttons come in build step 3 %>
+          <li>
+            <a href="/profile/<%= person.id %>"><%= person.name %></a>
+            <% if (person.course) { %><span class="person-course"><%= person.course %></span><% } %>
+          </li>
+        <% } %>
+      </ul>
+    <% } %>
+  </section>
+
+  <section id="sent" aria-labelledby="sent-heading">
+    <h2 id="sent-heading">Requests you sent</h2>
+    <% if (sent.length === 0) { %>
+      <p>None right now.</p>
+    <% } else { %>
+      <ul class="person-list">
+        <% for (const person of sent) { %>
+          <%# Waiting and declined both just say "Waiting" (decision 2) %>
+          <li>
+            <a href="/profile/<%= person.id %>"><%= person.name %></a>
+            <% if (person.course) { %><span class="person-course"><%= person.course %></span><% } %>
+            <span class="person-status">Waiting</span>
+          </li>
+        <% } %>
+      </ul>
+    <% } %>
+  </section>
+
+  <section id="connected" aria-labelledby="connected-heading">
+    <h2 id="connected-heading">Your connections</h2>
+    <% if (connected.length === 0) { %>
+      <p>None yet.</p>
+    <% } else { %>
+      <ul class="person-list">
+        <% for (const person of connected) { %>
+          <%# The "Open conversation" link comes in build step 4 %>
+          <li>
+            <a href="/profile/<%= person.id %>"><%= person.name %></a>
+            <% if (person.course) { %><span class="person-course"><%= person.course %></span><% } %>
+          </li>
+        <% } %>
+      </ul>
+    <% } %>
+  </section>
+
+<% } %>
+
+<%- include('partials/footer') %>
