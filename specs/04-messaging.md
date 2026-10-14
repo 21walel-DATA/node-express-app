@@ -198,8 +198,9 @@ Not tried in the browser, because they need tools rather than clicks: a
 request to yourself sent directly, a fake sender, and a message over 500
 characters (the browser stops at 500). The automated tests cover these.
 
-Still to do: Walied removes the three test accounts from the admin pages,
-so they do not appear in real students' matches.
+~~Still to do: Walied removes the three test accounts from the admin
+pages.~~ Done another way: Koulla deleted all three with "Delete my account"
+during the feature 06 live check (see `specs/06-account.md`).
 
 ## Open questions
 
