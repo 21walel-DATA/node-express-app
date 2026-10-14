@@ -14,10 +14,12 @@ require('./db');
 // Our store that keeps sessions in the SQLite database
 const SqliteStore = require('./sessionStore');
 
-// Middleware that works out who is logged in, and the "must be logged in" check
-const { loadCurrentUser, requireLogin } = require('./middleware/auth');
+// Middleware that works out who is logged in, the "must be logged in" check
+// and the "must be an admin" check
+const { loadCurrentUser, requireLogin, requireAdmin } = require('./middleware/auth');
 
 const homeRoutes = require('./routes/home');
+const adminRoutes = require('./routes/admin');
 const privacyRoutes = require('./routes/privacy');
 const authRoutes = require('./routes/auth');
 
@@ -98,6 +100,13 @@ app.use('/', authRoutes);
 // THE LOGIN CHECK: everything below this line needs a logged-in user.
 // A logged-out visitor is sent to /login and never reaches the routes below.
 app.use(requireLogin);
+
+// ADMIN PAGES: every address starting with /admin.
+// requireAdmin runs first and refuses non-admins with "403 Forbidden", so
+// the admin routes only ever run for admins.
+// These sit ABOVE the profile setup gate below, because admins are
+// organisers, not students, and never fill in a student profile.
+app.use('/admin', requireAdmin, adminRoutes);
 
 // FEATURE 02 (Koulla): the "finish your profile setup" gate and the profile
 // routes go here, directly after the login check.

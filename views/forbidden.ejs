@@ -1,0 +1,12 @@
+<%# views/forbidden.ejs
+    Shown with status 403 when someone opens a page they are not allowed to
+    see, for example a student opening an admin page (middleware/auth.js). %>
+<%- include('partials/header', { title: 'Not allowed' }) %>
+
+<h1>Not allowed</h1>
+
+<p>You do not have permission to open this page.</p>
+
+<p><a href="/">Back to your dashboard</a></p>
+
+<%- include('partials/footer') %>
