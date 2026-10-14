@@ -120,6 +120,10 @@ app.use('/', profileRoutes);
 // so only users who finished setup can connect.
 const connectionRoutes = require('./routes/connections');
 app.use('/', connectionRoutes);
+// FEATURE 06 (Koulla): the Account page. Below the gate (decision 4 in
+// specs/06-account.md).
+const accountRoutes = require('./routes/account');
+app.use('/', accountRoutes);
 
 // LOGGED-IN PAGES
 app.use('/', homeRoutes);

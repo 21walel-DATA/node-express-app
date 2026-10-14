@@ -1,0 +1,46 @@
+<%# views/account.ejs
+    The Account page, at /account. routes/account.js passes in:
+      errors  messages to show when a form was refused
+      values  what to put in the details boxes: name and email
+    Every form on this page acts on the logged-in user only.
+    Passwords are never put back into the page. %>
+
+<%- include('partials/header', { title: 'Account settings' }) %>
+
+<h1>Account settings</h1>
+
+<%# Show the list of problems only when there are some.
+    role="alert" makes a screen reader read the box out straight away. %>
+<% if (errors.length > 0) { %>
+  <div class="error-box" role="alert">
+    <p>Please fix the following:</p>
+    <ul>
+      <% errors.forEach((error) => { %>
+        <li><%= error %></li>
+      <% }) %>
+    </ul>
+  </div>
+<% } %>
+
+<%# PART A: change your name and email %>
+<h2>Your details</h2>
+<form method="post" action="/account/details" class="form">
+  <div class="form-field">
+    <label for="name">Name</label>
+    <input type="text" id="name" name="name" value="<%= values.name %>"
+      maxlength="100" autocomplete="name" required>
+  </div>
+
+  <div class="form-field">
+    <label for="email">Email address</label>
+    <input type="email" id="email" name="email" value="<%= values.email %>"
+      maxlength="254" autocomplete="email" required>
+  </div>
+
+  <button type="submit" class="button">Save details</button>
+</form>
+
+<%# Changing the password and deleting the account come in build steps 3
+    and 4 %>
+
+<%- include('partials/footer') %>
