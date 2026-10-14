@@ -32,6 +32,15 @@ const router = express.Router();
 //             any are, the entry cannot be removed, and inUseMessage says why.
 //             (Messages are worded to read correctly for any list and any
 //             number, so the page never says "a interest" or "1 students".)
+//   note      (optional) a sentence shown on the page, saying what removing
+//             an entry does
+//   parent    (optional) for a list whose entries each belong to an entry
+//             of another list, like a skill belonging to a category:
+//               table   the other list's table
+//               column  the column in this table holding the other id
+//               label   the word shown on the page, e.g. 'Category'
+//             The add form then has a dropdown to choose one, and the
+//             list page shows it next to each entry.
 const LISTS = [
   {
     path: 'courses',
@@ -43,6 +52,26 @@ const LISTS = [
     // first lets us show a clear message instead of an error page.)
     inUse: 'SELECT COUNT(*) AS total FROM users WHERE course_id = ?',
     inUseMessage: 'This course cannot be removed while students are on it.',
+    note: 'A course can only be removed when no students are on it.',
+  },
+  {
+    path: 'categories',
+    table: 'categories',
+    title: 'Categories',
+    singular: 'category',
+    // No inUse: removing a category keeps its skills, which are left with
+    // no category (ON DELETE SET NULL in schema.sql)
+    note: 'Removing a category keeps its skills. They are listed under "No category" until you add them again under another one.',
+  },
+  {
+    path: 'skills',
+    table: 'skills',
+    title: 'Skills',
+    singular: 'skill',
+    // Each skill belongs to a category (PRD section 4.5), and the profile
+    // form shows skills under their category heading
+    parent: { table: 'categories', column: 'category_id', label: 'Category' },
+    note: 'Removing a skill also removes it from every student who ticked it.',
   },
   {
     path: 'interests',
@@ -51,6 +80,7 @@ const LISTS = [
     singular: 'interest',
     // No inUse: removing an interest also removes everyone's tick for it
     // (ON DELETE CASCADE in schema.sql)
+    note: 'Removing an interest also removes it from every student who ticked it.',
   },
 ];
 
@@ -71,21 +101,51 @@ router.get('/', (req, res) => {
 // 3. LIST ROUTES (set up once for each list in LISTS)
 // ---------------------------------------------------------
 
-// Fetches every entry in a list, in alphabetical order
+// Fetches every entry in a list, in alphabetical order.
+// For a list with a parent (skills), each row also gets parentName, the
+// name of its category. LEFT JOIN keeps a skill even when it has no
+// category; its parentName is then null.
 function getRows(list) {
+  if (list.parent) {
+    return db
+      .prepare(
+        `SELECT child.id, child.name, parent.name AS parentName
+         FROM ${list.table} AS child
+         LEFT JOIN ${list.parent.table} AS parent ON parent.id = child.${list.parent.column}
+         ORDER BY child.name`
+      )
+      .all();
+  }
+
   return db.prepare(`SELECT id, name FROM ${list.table} ORDER BY name`).all();
+}
+
+// Fetches the choices for the parent dropdown (e.g. every category), or an
+// empty list for a list without a parent
+function getParentOptions(list) {
+  if (!list.parent) {
+    return [];
+  }
+  return db.prepare(`SELECT id, name FROM ${list.parent.table} ORDER BY name`).all();
 }
 
 // Shows a list page. Used for the first visit, and again (with status 400
 // "Bad Request") when an add or remove was refused.
-// errors is a list of messages; value is what the admin typed, so the add
-// form can be refilled.
-function renderList(res, list, errors = [], value = '', status = 200) {
-  res.status(status).render('admin-list', { list, rows: getRows(list), errors, value });
+// errors is a list of messages. values is what the admin typed or chose
+// last time ({ name, parentId }), so the add form can be refilled.
+function renderList(res, list, errors = [], values = {}, status = 200) {
+  res.status(status).render('admin-list', {
+    list,
+    rows: getRows(list),
+    parentOptions: getParentOptions(list),
+    errors,
+    values,
+  });
 }
 
-// A "for...of" loop over LISTS: everything inside runs once for courses,
-// then once for interests, each time with "list" set to that list's settings
+// A "for...of" loop over LISTS: everything inside runs once for each list
+// (courses, then categories, and so on), each time with "list" set to that
+// list's settings
 for (const list of LISTS) {
   // 2. SHOW A LIST: e.g. GET /admin/courses
   router.get(`/${list.path}`, (req, res) => {
@@ -115,12 +175,29 @@ for (const list of LISTS) {
       }
     }
 
-    if (errors.length > 0) {
-      return renderList(res, list, errors, name, 400);
+    // 3b. For a list with a parent (skills): a real one must be chosen.
+    // Form fields always arrive as text, so Number() turns '3' into 3.
+    const parentId = Number(req.body.parent_id);
+    if (list.parent) {
+      const parent = db.prepare(`SELECT id FROM ${list.parent.table} WHERE id = ?`).get(parentId);
+      if (!parent) {
+        errors.push(`Choose a ${list.parent.label.toLowerCase()}.`);
+      }
     }
 
-    // 3b. Save it. The name goes in through a ? placeholder, as always.
-    db.prepare(`INSERT INTO ${list.table} (name) VALUES (?)`).run(name);
+    if (errors.length > 0) {
+      return renderList(res, list, errors, { name, parentId }, 400);
+    }
+
+    // 3c. Save it. The values go in through ? placeholders, as always.
+    if (list.parent) {
+      db.prepare(`INSERT INTO ${list.table} (name, ${list.parent.column}) VALUES (?, ?)`).run(
+        name,
+        parentId
+      );
+    } else {
+      db.prepare(`INSERT INTO ${list.table} (name) VALUES (?)`).run(name);
+    }
 
     // Send the browser back to the list page with a GET request. This is
     // called "Post/Redirect/Get": refreshing the page afterwards does not
@@ -140,7 +217,7 @@ for (const list of LISTS) {
     if (list.inUse) {
       const { total } = db.prepare(list.inUse).get(id);
       if (total > 0) {
-        return renderList(res, list, [`${list.inUseMessage} Students on it: ${total}.`], '', 400);
+        return renderList(res, list, [`${list.inUseMessage} Students on it: ${total}.`], {}, 400);
       }
     }
 

@@ -1,5 +1,6 @@
 // tests/admin-lists.test.js
-// Tests for the admin list pages in routes/admin.js (courses and interests).
+// Tests for the admin list pages in routes/admin.js (courses, categories,
+// skills and interests).
 // Run all tests with: npm test
 
 const test = require('node:test');
@@ -33,14 +34,15 @@ function addEntry(agent, path, name) {
 // SHOWING THE LISTS
 // ---------------------------------------------------------
 
-// 1. NORMAL CASE: the admin home links to both list pages
-test('the admin home page links to Courses and Interests', async () => {
+// 1. NORMAL CASE: the admin home links to all four list pages
+test('the admin home page links to every list', async () => {
   const admin = await loginAs(app, { isAdmin: true });
 
   const response = await admin.get('/admin');
 
-  assert.match(response.text, /href="\/admin\/courses"/);
-  assert.match(response.text, /href="\/admin\/interests"/);
+  for (const path of ['courses', 'categories', 'skills', 'interests']) {
+    assert.match(response.text, new RegExp(`href="/admin/${path}"`), `missing link: ${path}`);
+  }
 });
 
 // 2. NORMAL CASE: the courses page lists the courses in the database
@@ -184,4 +186,105 @@ test('a student cannot add or remove entries', async () => {
   assert.strictEqual(remove.status, 403);
   assert.strictEqual(findRow('interests', 'Sneaky'), undefined);
   assert.ok(findRow('interests', 'Protected'));
+});
+
+// ---------------------------------------------------------
+// CATEGORIES AND SKILLS
+// ---------------------------------------------------------
+
+// Sends the add-a-skill form, with its category dropdown
+function addSkill(agent, name, categoryId) {
+  return agent.post('/admin/skills').type('form').send({ name, parent_id: categoryId });
+}
+
+// 12. NORMAL CASE (finish line): a skill added by an admin appears on the
+// profile form under its category
+test('a skill added by an admin appears on the profile form under its category', async () => {
+  const admin = await loginAs(app, { isAdmin: true });
+  await addEntry(admin, 'categories', 'Hardware');
+  const category = findRow('categories', 'Hardware');
+
+  const response = await addSkill(admin, 'Soldering', category.id);
+
+  assert.strictEqual(response.status, 302);
+  const skill = db.prepare('SELECT category_id FROM skills WHERE name = ?').get('Soldering');
+  assert.strictEqual(skill.category_id, category.id);
+
+  // On the form, "Soldering" must come after the "Hardware" heading, with
+  // no other category heading in between.
+  // ((?!<h3)[\s\S])* means "any characters, as long as no <h3 starts here".
+  const student = await loginAs(app);
+  const form = await student.get('/profile/edit');
+  assert.match(form.text, /Hardware<\/h3>((?!<h3)[\s\S])*Soldering/);
+});
+
+// 13. NORMAL CASE: the skills page shows each skill's category
+test('the skills page shows each skill with its category', async () => {
+  const admin = await loginAs(app, { isAdmin: true });
+  const categoryId = addRow('categories', 'Kitchen');
+  db.prepare('INSERT INTO skills (name, category_id) VALUES (?, ?)').run('Baking', categoryId);
+
+  const response = await admin.get('/admin/skills');
+
+  assert.match(response.text, /Baking\s*<span class="hint">&middot; Kitchen<\/span>/);
+});
+
+// 14. INVALID INPUT: a skill must have a real category
+test('adding a skill without a real category is refused', async () => {
+  const admin = await loginAs(app, { isAdmin: true });
+
+  // No category chosen, then a category id that does not exist
+  const none = await addSkill(admin, 'Juggling', '');
+  const fake = await addSkill(admin, 'Juggling', 99999);
+
+  assert.strictEqual(none.status, 400);
+  assert.match(none.text, /Choose a category/);
+  assert.strictEqual(fake.status, 400);
+  assert.strictEqual(findRow('skills', 'Juggling'), undefined);
+});
+
+// 15. INVALID INPUT: a refused skill form is refilled with the name and category
+test('a refused skill form keeps the name and the chosen category', async () => {
+  const admin = await loginAs(app, { isAdmin: true });
+  const categoryId = addRow('categories', 'Outdoors');
+  db.prepare('INSERT INTO skills (name, category_id) VALUES (?, ?)').run('Climbing', categoryId);
+
+  // A copy of an existing skill, so the form is refused
+  const response = await addSkill(admin, 'Climbing', categoryId);
+
+  assert.strictEqual(response.status, 400);
+  assert.match(response.text, /value="Climbing"/);
+  assert.match(response.text, new RegExp(`value="${categoryId}" selected`));
+});
+
+// 16. NORMAL CASE: removing a category keeps its skills, with no category
+test('removing a category keeps its skills, now with no category', async () => {
+  const admin = await loginAs(app, { isAdmin: true });
+  const categoryId = addRow('categories', 'Temporary');
+  db.prepare('INSERT INTO skills (name, category_id) VALUES (?, ?)').run('Knitting', categoryId);
+
+  const response = await admin.post(`/admin/categories/${categoryId}/remove`);
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(findRow('categories', 'Temporary'), undefined);
+  const skill = db.prepare('SELECT category_id FROM skills WHERE name = ?').get('Knitting');
+  assert.strictEqual(skill.category_id, null);
+
+  // The skills page says so
+  const page = await admin.get('/admin/skills');
+  assert.match(page.text, /Knitting\s*<span class="hint">&middot; No category<\/span>/);
+});
+
+// 17. NORMAL CASE: removing a skill also removes everyone's ticks for it
+test('removing a skill also removes the ticks for it', async () => {
+  const admin = await loginAs(app, { isAdmin: true });
+  const skillId = addRow('skills', 'Origami');
+  const student = createUser();
+  db.prepare("INSERT INTO user_skills (user_id, skill_id, kind) VALUES (?, ?, 'has')").run(student.id, skillId);
+
+  await admin.post(`/admin/skills/${skillId}/remove`);
+
+  assert.strictEqual(findRow('skills', 'Origami'), undefined);
+  const ticks = db.prepare('SELECT COUNT(*) AS total FROM user_skills WHERE skill_id = ?').get(skillId);
+  assert.strictEqual(ticks.total, 0);
 });
