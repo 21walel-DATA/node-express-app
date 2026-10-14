@@ -205,3 +205,128 @@ test('someone else\'s unfinished profile shows "Profile not found"', async () =>
   // Nothing about the person leaks out
   assert.doesNotMatch(response.text, /Una Finished/);
 });
+
+// ---------------------------------------------------------
+// PROFILE FORM: /profile/edit (showing it; saving comes in step 3)
+// ---------------------------------------------------------
+
+// Looks up a skill's or an interest's id by its name, so the tests can
+// use readable names like 'Sales' instead of id numbers
+function skillId(name) {
+  return db.prepare('SELECT id FROM skills WHERE name = ?').get(name).id;
+}
+function interestId(name) {
+  return db.prepare('SELECT id FROM interests WHERE name = ?').get(name).id;
+}
+
+// 12. NORMAL CASE: the form shows every list, with skills grouped by category
+test('the profile form shows all the lists and both text boxes', async () => {
+  const agent = await loginAs(app);
+
+  const response = await agent.get('/profile/edit');
+
+  assert.strictEqual(response.status, 200);
+  // The form sends its answers back to the same address
+  assert.match(response.text, /<form method="post" action="\/profile\/edit"/);
+  // All five "looking for" options, which schema.sql always adds
+  for (const label of [
+    'Co-founder / business partner',
+    'Project collaborator',
+    'Find a mentor',
+    'Be a mentor',
+    'Meet people socially',
+  ]) {
+    assert.match(response.text, new RegExp(label));
+  }
+  // Both skill lists, each grouped under the category headings, in order
+  assert.match(
+    response.text,
+    /Skills I have[\s\S]*Business[\s\S]*Sales[\s\S]*Tech[\s\S]*JavaScript[\s\S]*Skills I am looking for[\s\S]*Business[\s\S]*Sales[\s\S]*Tech[\s\S]*JavaScript/
+  );
+  assert.match(response.text, /Interests[\s\S]*Fintech/);
+  // The two optional text boxes, each limited to 500 characters
+  assert.match(response.text, /<textarea id="bio" name="bio" maxlength="500"/);
+  assert.match(response.text, /<textarea id="business_idea" name="business_idea" maxlength="500"/);
+});
+
+// 13. NORMAL CASE: a new user is setting up, so the heading says so
+test('a new user sees "Set up your profile"', async () => {
+  const agent = await loginAs(app);
+
+  const response = await agent.get('/profile/edit');
+
+  assert.match(response.text, /<h1>Set up your profile<\/h1>/);
+});
+
+// 14. NORMAL CASE: a user who has finished setup is editing
+test('a user who finished setup sees "Edit my profile"', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+
+  const response = await agent.get('/profile/edit');
+
+  assert.match(response.text, /<h1>Edit my profile<\/h1>/);
+});
+
+// 15. NORMAL CASE: what the user saved before is already ticked and filled in
+test('the form shows the user\'s saved ticks and text', async () => {
+  const agent = await loginAs(app, { setupComplete: true });
+  // Sales (has), JavaScript (wants), Fintech, Co-founder, and both texts
+  fillProfile(agent.user.id);
+
+  const response = await agent.get('/profile/edit');
+  const sales = skillId('Sales');
+  const javascript = skillId('JavaScript');
+
+  // [^>]* means "anything up to the end of this tag", so these check that
+  // the word "checked" is inside that one checkbox's tag
+  assert.match(response.text, new RegExp(`id="has-${sales}"[^>]*checked`));
+  assert.match(response.text, new RegExp(`id="wants-${javascript}"[^>]*checked`));
+  assert.match(response.text, new RegExp(`id="interest-${interestId('Fintech')}"[^>]*checked`));
+  // Only what was saved is ticked
+  assert.doesNotMatch(response.text, new RegExp(`id="has-${javascript}"[^>]*checked`));
+  assert.doesNotMatch(response.text, new RegExp(`id="wants-${sales}"[^>]*checked`));
+  // The saved text is inside the text boxes
+  assert.match(response.text, /<textarea id="bio"[^>]*>I love selling things\.<\/textarea>/);
+  assert.match(response.text, /<textarea id="business_idea"[^>]*>An app for local markets\.<\/textarea>/);
+});
+
+// 16. NORMAL CASE (PRD section 7): every tick box has its own label
+test('every tick box on the form has a label', async () => {
+  const agent = await loginAs(app);
+
+  const response = await agent.get('/profile/edit');
+
+  // Collect the id of every checkbox on the page.
+  // matchAll finds every match; m[1] is the part inside the brackets.
+  const ids = [...response.text.matchAll(/type="checkbox" id="([^"]+)"/g)].map((m) => m[1]);
+
+  // 5 "looking for" + 2 skills twice + 1 interest = at least 10 tick boxes
+  assert.ok(ids.length >= 10, `expected at least 10 tick boxes, found ${ids.length}`);
+  for (const id of ids) {
+    assert.match(response.text, new RegExp(`<label for="${id}">`));
+  }
+});
+
+// 17. DENIED ACCESS: the form only ever shows your OWN answers
+test('the form never shows another user\'s answers', async () => {
+  // Someone else fills in a profile...
+  const other = createUser({ setupComplete: true });
+  fillProfile(other.id);
+  // ...and a different, new user opens the form
+  const agent = await loginAs(app);
+
+  const response = await agent.get('/profile/edit');
+
+  // Check the form loaded, so the test is not passing by accident
+  assert.match(response.text, /<h1>Set up your profile<\/h1>/);
+  assert.doesNotMatch(response.text, /checked/);
+  assert.doesNotMatch(response.text, /I love selling things/);
+});
+
+// 18. DENIED ACCESS: a logged-out visitor is sent to the login page
+test('a logged-out visitor cannot see the profile form', async () => {
+  const response = await request(app).get('/profile/edit');
+
+  assert.strictEqual(response.status, 302);
+  assert.strictEqual(response.headers.location, '/login');
+});

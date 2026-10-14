@@ -57,7 +57,8 @@
     </ul>
   <% } %>
 
-  <%# Skills come in groups: one heading per category, then its skills %>
+  <%# Skills come in groups: one heading per category, then its skills.
+      Each skill has an id and a name; only the name is shown. %>
   <h2>Has these skills</h2>
   <% if (skillsHas.length === 0) { %>
     <p>Nothing ticked yet.</p>
@@ -66,7 +67,7 @@
       <h3><%= group.category %></h3>
       <ul>
         <% for (const skill of group.skills) { %>
-          <li><%= skill %></li>
+          <li><%= skill.name %></li>
         <% } %>
       </ul>
     <% } %>
@@ -80,7 +81,7 @@
       <h3><%= group.category %></h3>
       <ul>
         <% for (const skill of group.skills) { %>
-          <li><%= skill %></li>
+          <li><%= skill.name %></li>
         <% } %>
       </ul>
     <% } %>

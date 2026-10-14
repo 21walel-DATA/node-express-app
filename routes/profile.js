@@ -26,8 +26,10 @@ function getInitials(name) {
 }
 
 // Turns a flat list of skills into groups, one per category.
-// In:  [{ name: 'Sales', category: 'Business' }, { name: 'Pitching', category: 'Business' }]
-// Out: [{ category: 'Business', skills: ['Sales', 'Pitching'] }]
+// In:  [{ id: 1, name: 'Sales', category: 'Business' }, { id: 2, name: 'Pitching', category: 'Business' }]
+// Out: [{ category: 'Business', skills: [{ id: 1, name: 'Sales' }, { id: 2, name: 'Pitching' }] }]
+// Each skill keeps its id as well as its name, because a tick box on the
+// form sends back the id.
 // The rows must already be sorted by category, so each group's skills sit
 // next to each other.
 function groupByCategory(rows) {
@@ -36,14 +38,15 @@ function groupByCategory(rows) {
   for (const row of rows) {
     // A skill whose category was deleted has no category (null)
     const category = row.category || 'Other';
+    const skill = { id: row.id, name: row.name };
     const lastGroup = groups[groups.length - 1];
 
     if (lastGroup && lastGroup.category === category) {
       // Same category as the skill before: add it to that group
-      lastGroup.skills.push(row.name);
+      lastGroup.skills.push(skill);
     } else {
       // A new category: start a new group
-      groups.push({ category, skills: [row.name] });
+      groups.push({ category, skills: [skill] });
     }
   }
 
@@ -57,7 +60,7 @@ function getSkills(userId, kind) {
   // skills without a category at the end.
   const rows = db
     .prepare(
-      `SELECT skills.name, categories.name AS category
+      `SELECT skills.id, skills.name, categories.name AS category
        FROM user_skills
        JOIN skills ON skills.id = user_skills.skill_id
        LEFT JOIN categories ON categories.id = skills.category_id
@@ -69,14 +72,93 @@ function getSkills(userId, kind) {
   return groupByCategory(rows);
 }
 
+// Reads the full lists the form offers as tick boxes: every "looking for"
+// option, every skill (grouped by category) and every interest.
+// Admins manage these lists (feature 05), so they can be empty.
+function getFormLists() {
+  const lookingForOptions = db
+    .prepare('SELECT id, label FROM looking_for_options ORDER BY id')
+    .all();
+
+  // The same sorting as getSkills, but for ALL skills, not one user's
+  const skillRows = db
+    .prepare(
+      `SELECT skills.id, skills.name, categories.name AS category
+       FROM skills
+       LEFT JOIN categories ON categories.id = skills.category_id
+       ORDER BY categories.name IS NULL, categories.name, skills.name`
+    )
+    .all();
+
+  const interestOptions = db.prepare('SELECT id, name FROM interests ORDER BY name').all();
+
+  return {
+    lookingForOptions,
+    skillGroups: groupByCategory(skillRows),
+    interestOptions,
+  };
+}
+
+// Reads what a user saved before, in the shape the form uses:
+// lists of id numbers for the ticks, and the two texts.
+function getSavedValues(userId) {
+  const user = db.prepare('SELECT bio, business_idea FROM users WHERE id = ?').get(userId);
+
+  // .all() gives rows like { id: 3 }; .map keeps just the numbers
+  const lookingFor = db
+    .prepare('SELECT option_id AS id FROM user_looking_for WHERE user_id = ?')
+    .all(userId)
+    .map((row) => row.id);
+  const skillsHas = db
+    .prepare("SELECT skill_id AS id FROM user_skills WHERE user_id = ? AND kind = 'has'")
+    .all(userId)
+    .map((row) => row.id);
+  const skillsWants = db
+    .prepare("SELECT skill_id AS id FROM user_skills WHERE user_id = ? AND kind = 'wants'")
+    .all(userId)
+    .map((row) => row.id);
+  const interests = db
+    .prepare('SELECT interest_id AS id FROM user_interests WHERE user_id = ?')
+    .all(userId)
+    .map((row) => row.id);
+
+  return {
+    lookingFor,
+    skillsHas,
+    skillsWants,
+    interests,
+    // "|| ''" shows an empty box when nothing was saved (null)
+    bio: user.bio || '',
+    businessIdea: user.business_idea || '',
+  };
+}
+
 // ---------------------------------------------------------
 // PROFILE ROUTES
 // ---------------------------------------------------------
 
-// NOTE FOR LATER: the form's route, /profile/edit, must be written ABOVE
-// this one. Otherwise Express would read "edit" as an :id.
+// ORDER MATTERS: /profile/edit must stay ABOVE /profile/:id.
+// Express tries routes from top to bottom, and ":id" would happily take
+// the word "edit" as a person's number.
 
-// 1. PROFILE PAGE: Show one person's profile.
+// 1. PROFILE FORM: Show the form, filled in with what the user saved before.
+// There is no id in the address: the form always belongs to the logged-in
+// user, so nobody can open someone else's form.
+router.get('/profile/edit', (req, res) => {
+  const userId = res.locals.currentUser.id;
+
+  res.render('profile-form', {
+    // The tick box lists: lookingForOptions, skillGroups, interestOptions
+    ...getFormLists(),
+    // What to tick and fill in
+    values: getSavedValues(userId),
+    // No problems to show yet. Step 3 (saving) fills this in when the
+    // form is refused.
+    errors: [],
+  });
+});
+
+// 2. PROFILE PAGE: Show one person's profile.
 // ":id" is a gap in the address. For /profile/7, req.params.id is '7'.
 // app.js puts this router below the login check, so only logged-in users
 // reach it, and res.locals.currentUser is always set.

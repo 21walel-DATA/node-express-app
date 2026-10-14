@@ -1,0 +1,123 @@
+<%# views/profile-form.ejs
+    The profile form, at /profile/edit. The same form is used for first-time
+    setup and for editing later. routes/profile.js passes in:
+      lookingForOptions  the five "looking for" options (id, label)
+      skillGroups        every skill, grouped by category
+      interestOptions    every interest (id, name)
+      values             what to tick and fill in: lists of ticked id numbers
+                         (lookingFor, skillsHas, skillsWants, interests) and
+                         the texts (bio, businessIdea)
+      errors             messages to show when the form was refused (step 3)
+    The "equals" EJS tag prints a value safely: any HTML in it is shown as
+    plain text. (EJS tags cannot be written inside a comment like this one,
+    because their closing mark would end the comment early.)
+
+    How a tick box works: each one has a name (which list it belongs to) and
+    a value (the id number). When the form is sent, only the TICKED boxes
+    are sent, for example: skills_has=3 and skills_has=7.
+    "checked" makes a box start ticked. %>
+
+<%# currentUser.setup_complete is 0 until the first save, so the heading
+    tells a new user what this page is for %>
+<% const pageTitle = currentUser.setup_complete ? 'Edit my profile' : 'Set up your profile'; %>
+<%- include('partials/header', { title: pageTitle }) %>
+
+<h1><%= pageTitle %></h1>
+
+<p class="lead">Tick at least one box in each list. The two text boxes are optional.</p>
+
+<%# Show the list of problems only when there are some.
+    role="alert" makes a screen reader read the box out straight away. %>
+<% if (errors.length > 0) { %>
+  <div class="error-box" role="alert">
+    <p>Please fix the following:</p>
+    <ul>
+      <% errors.forEach((error) => { %>
+        <li><%= error %></li>
+      <% }) %>
+    </ul>
+  </div>
+<% } %>
+
+<form method="post" action="/profile/edit" class="form">
+
+  <%# A fieldset draws a box around a group of tick boxes. Its legend is the
+      group's name, so a screen reader says, for example,
+      "Looking for, group. Find a mentor, tick box". %>
+  <fieldset class="form-field">
+    <legend>Looking for</legend>
+    <% for (const option of lookingForOptions) { %>
+      <div class="form-check">
+        <input type="checkbox" id="looking-for-<%= option.id %>" name="looking_for" value="<%= option.id %>" <%= values.lookingFor.includes(option.id) ? 'checked' : '' %>>
+        <label for="looking-for-<%= option.id %>"><%= option.label %></label>
+      </div>
+    <% } %>
+  </fieldset>
+
+  <%# The two skill lists show the same skills. Their ids start with
+      "has-" or "wants-", so every tick box on the page has a different id. %>
+  <fieldset class="form-field">
+    <legend>Skills I have</legend>
+    <% if (skillGroups.length === 0) { %>
+      <p>No skills to choose from yet. Please ask an admin.</p>
+    <% } %>
+    <% for (const group of skillGroups) { %>
+      <h3><%= group.category %></h3>
+      <% for (const skill of group.skills) { %>
+        <div class="form-check">
+          <input type="checkbox" id="has-<%= skill.id %>" name="skills_has" value="<%= skill.id %>" <%= values.skillsHas.includes(skill.id) ? 'checked' : '' %>>
+          <label for="has-<%= skill.id %>"><%= skill.name %></label>
+        </div>
+      <% } %>
+    <% } %>
+  </fieldset>
+
+  <fieldset class="form-field">
+    <legend>Skills I am looking for</legend>
+    <% if (skillGroups.length === 0) { %>
+      <p>No skills to choose from yet. Please ask an admin.</p>
+    <% } %>
+    <% for (const group of skillGroups) { %>
+      <h3><%= group.category %></h3>
+      <% for (const skill of group.skills) { %>
+        <div class="form-check">
+          <input type="checkbox" id="wants-<%= skill.id %>" name="skills_wants" value="<%= skill.id %>" <%= values.skillsWants.includes(skill.id) ? 'checked' : '' %>>
+          <label for="wants-<%= skill.id %>"><%= skill.name %></label>
+        </div>
+      <% } %>
+    <% } %>
+  </fieldset>
+
+  <fieldset class="form-field">
+    <legend>Interests</legend>
+    <% if (interestOptions.length === 0) { %>
+      <p>No interests to choose from yet. Please ask an admin.</p>
+    <% } %>
+    <% for (const interest of interestOptions) { %>
+      <div class="form-check">
+        <input type="checkbox" id="interest-<%= interest.id %>" name="interests" value="<%= interest.id %>" <%= values.interests.includes(interest.id) ? 'checked' : '' %>>
+        <label for="interest-<%= interest.id %>"><%= interest.name %></label>
+      </div>
+    <% } %>
+  </fieldset>
+
+  <%# maxlength stops the browser accepting more than 500 characters. The
+      server checks again in step 3, because a browser can be bypassed.
+      The saved text goes BETWEEN the textarea tags, on the same line, so no
+      extra spaces sneak into it. %>
+  <div class="form-field">
+    <label for="bio">Bio</label>
+    <p class="hint" id="bio-hint">Optional. Up to 500 characters.</p>
+    <textarea id="bio" name="bio" maxlength="500" rows="4" aria-describedby="bio-hint"><%= values.bio %></textarea>
+  </div>
+
+  <div class="form-field">
+    <label for="business_idea">Business idea</label>
+    <p class="hint" id="business-idea-hint">Optional. Up to 500 characters. Any student can fill this in.</p>
+    <textarea id="business_idea" name="business_idea" maxlength="500" rows="4" aria-describedby="business-idea-hint"><%= values.businessIdea %></textarea>
+  </div>
+
+  <button type="submit" class="button">Save my profile</button>
+</form>
+
+<%- include('partials/footer') %>
