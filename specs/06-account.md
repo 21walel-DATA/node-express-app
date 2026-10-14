@@ -6,8 +6,8 @@ feature freeze; Koulla and Walied chose to build it tonight). **Built** on
 14 October 2026 (branch `06-account`): all five build steps done, all tests
 pass, and every action was tried on the running app with a demo database
 (rename, refused email change, password change, refused and real delete).
-Koulla's check by eye (light and dark mode, phone width, keyboard) is not
-confirmed yet. Waiting for Walied's review, and for his "Account" header
+Koulla checked the page by eye (light and dark mode, phone width,
+keyboard). Waiting for Walied's review, and for his "Account" header
 link.
 See `PRD.md` sections 4.1 and 4.6, and `roadmap.md` feature 06.
 
