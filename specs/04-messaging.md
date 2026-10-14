@@ -6,7 +6,9 @@ freeze (messaging is one of the five brief essentials, so it is never cut).
 **Built** on 14 October 2026 (branch `04-messaging`): all six build steps
 done, all tests pass, the whole journey was tried on the running app, and
 Koulla checked the pages by eye (light and dark mode, phone width, keyboard
-only). Waiting for Walied's review, and for his "Connections" header link.
+only). Merged by Walied in pull request #10, and **checked on the live
+site** the same evening (see "Checked on the live site" below). Still
+waiting for Walied's "Connections" header link.
 See `PRD.md` section 4.4 and `roadmap.md` feature 04.
 
 A spec says how one feature should behave and how we will check it.
@@ -162,6 +164,42 @@ One small step at a time, test first, one commit each.
 6. Styles. **Done:** section 10 at the bottom of `public/style.css`. A test
    checks every class the messaging pages use has a rule there. The
    "Connections" header link is still to be added by Walied.
+
+## Checked on the live site
+
+Reported by Koulla on the evening of 14 October 2026, at
+https://node-express-app-production.up.railway.app (Railway deployment of
+`a50d503`, the merge of pull request #10). Three new test accounts, Test
+Alpha (A), Test Bravo (B) and Test Charlie (C), were registered through the
+Register page, each in its own browser window. Check 14 (the admin pages)
+was planned for Walied's admin account.
+
+**Result: all 15 checks passed.**
+
+| # | Who | Check | Result |
+|---|---|---|---|
+| 1 | A | Send B a request from B's profile: "Request sent" | Passed |
+| 2 | A | Back button, then press the old button again: B still has only one request | Passed |
+| 3 | A | Own profile has no "Send connection request" button | Passed |
+| 4 | A | Typing a conversation address before connecting shows the "misdirected" page | Passed |
+| 5 | B | `/connections` shows A once under "Requests to you", with Accept and Decline | Passed |
+| 6 | B | Accept: A moves to "Your connections" | Passed |
+| 7 | A | B's profile says "You are connected. Open conversation" | Passed |
+| 8 | A | Send a message: it appears with the right UK time | Passed |
+| 9 | B | Refresh: A's message is there; reply | Passed |
+| 10 | A | Refresh: B's reply is there | Passed |
+| 11 | A | Send with an empty box: "Please write a message before sending." | Passed |
+| 12 | C | Opening A and B's conversation address shows the "misdirected" page | Passed |
+| 13 | C, A | C asks A, A declines: C still sees "Request sent" | Passed |
+| 14 | Walied | No admin page shows conversations | Passed |
+| 15 | Anyone | Readable on a phone and in dark mode | Passed |
+
+Not tried in the browser, because they need tools rather than clicks: a
+request to yourself sent directly, a fake sender, and a message over 500
+characters (the browser stops at 500). The automated tests cover these.
+
+Still to do: Walied removes the three test accounts from the admin pages,
+so they do not appear in real students' matches.
 
 ## Open questions
 
