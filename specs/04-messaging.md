@@ -3,7 +3,10 @@
 **Owner:** Koulla
 **Status:** plan agreed by Koulla on 14 October 2026, after the 15:00 feature
 freeze (messaging is one of the five brief essentials, so it is never cut).
-Not built yet.
+**Built** on 14 October 2026 (branch `04-messaging`): all six build steps
+done, all tests pass, the whole journey was tried on the running app, and
+Koulla checked the pages by eye (light and dark mode, phone width, keyboard
+only). Waiting for Walied's review, and for his "Connections" header link.
 See `PRD.md` section 4.4 and `roadmap.md` feature 04.
 
 A spec says how one feature should behave and how we will check it.
@@ -156,6 +159,9 @@ One small step at a time, test first, one commit each.
    message before sending." Over 500 characters: "Your message must be 500
    characters or fewer.", with the text kept in the box. The sender is
    always the logged-in user, whatever the form sends.
+6. Styles. **Done:** section 10 at the bottom of `public/style.css`. A test
+   checks every class the messaging pages use has a rule there. The
+   "Connections" header link is still to be added by Walied.
 
 ## Open questions
 
