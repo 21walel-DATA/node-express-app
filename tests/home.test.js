@@ -33,7 +33,7 @@ function tickSales(userId, kind) {
 
 // 1. NORMAL CASE: a logged-in user gets the dashboard as HTML
 test('GET / shows the dashboard to a logged-in user', async () => {
-  const agent = await loginAs(app, { name: 'Sam Taylor' });
+  const agent = await loginAs(app, { name: 'Sam Taylor', setupComplete: true });
 
   // Ask the app for the home page and wait for the answer
   const response = await agent.get('/');
@@ -61,7 +61,7 @@ test('GET /style.css returns the stylesheet', async () => {
 // 3. DENIED ACCESS: the old open practice routes must stay removed
 test('GET /api/users is not available', async () => {
   // Logged in, so the answer comes from the routes and not the login check
-  const agent = await loginAs(app);
+  const agent = await loginAs(app, { setupComplete: true });
 
   const response = await agent.get('/api/users');
 
@@ -77,7 +77,7 @@ test('GET /api/users is not available', async () => {
 
 // 4. NORMAL CASE: a match is shown with its reason and a link to the profile
 test('the dashboard shows a match with its reason and profile link', async () => {
-  const agent = await loginAs(app, { name: 'Wanda Wants' });
+  const agent = await loginAs(app, { name: 'Wanda Wants', setupComplete: true });
   tickSales(agent.user.id, 'wants');
 
   const seller = createUser({ name: 'Sid Seller', setupComplete: true });
@@ -93,7 +93,7 @@ test('the dashboard shows a match with its reason and profile link', async () =>
 
 // 5. SECURITY: a match's email address is never shown on the dashboard
 test('the dashboard does not show email addresses', async () => {
-  const agent = await loginAs(app);
+  const agent = await loginAs(app, { setupComplete: true });
   tickSales(agent.user.id, 'wants');
 
   const seller = createUser({ name: 'Eve Private', setupComplete: true });
@@ -109,7 +109,7 @@ test('the dashboard does not show email addresses', async () => {
 // 6. EDGE CASE (roadmap finish line): nobody qualifies, so say so
 test('a user with no matches sees "No matches yet"', async () => {
   // A brand new user has ticked nothing, so nobody can score with them
-  const agent = await loginAs(app);
+  const agent = await loginAs(app, { setupComplete: true });
 
   const response = await agent.get('/');
 
@@ -132,7 +132,7 @@ test('a logged-out visitor cannot see the dashboard', async () => {
 
 // 8. NORMAL CASE: a logged-in user sees "My profile", linking to their own page
 test('the header shows a "My profile" link to a logged-in user', async () => {
-  const agent = await loginAs(app);
+  const agent = await loginAs(app, { setupComplete: true });
 
   const response = await agent.get('/');
 

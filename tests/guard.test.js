@@ -59,7 +59,7 @@ test('the header shows Log in and Register to a logged-out visitor', async () =>
 
 // 5. NORMAL CASE: a logged-in user sees their name and a Log out button
 test('the header shows the name and Log out to a logged-in user', async () => {
-  const agent = await loginAs(app, { name: 'Sam Taylor' });
+  const agent = await loginAs(app, { name: 'Sam Taylor', setupComplete: true });
 
   const response = await agent.get('/');
 

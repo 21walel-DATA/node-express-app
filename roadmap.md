@@ -166,7 +166,7 @@ The five brief essentials are never cut, only simplified.
 
 - [x] 00 Foundations
 - [x] 01 Registration and login
-- [ ] 02 Profiles
+- [x] 02 Profiles
 - [x] 03 Matching
 - [ ] 04 Messaging
 - [ ] 05 Admin

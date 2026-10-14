@@ -2,8 +2,10 @@
 
 **Owner:** Koulla
 **Status:** plan agreed by Koulla on 13 October 2026. Walied's answers about
-feature 01 were added on 14 October 2026. Waiting for feature 01 to be merged
-before the forms are built.
+feature 01 were added on 14 October 2026. **Built** on 14 October 2026 (branch
+`02-profile-forms`): all five build steps done, all tests pass, and Koulla
+checked the pages by eye (light and dark mode, phone width, keyboard only).
+Waiting for Walied's review.
 See `PRD.md` section 4.2 and `roadmap.md` feature 02.
 
 A spec says how one feature should behave and how we will check it.
@@ -17,7 +19,7 @@ A spec says how one feature should behave and how we will check it.
   shared demo password (there is a `TODO` in the file).
 - Still to agree with Walied: how the seed is run on Railway.
 
-## Part 2: Profile forms (not started)
+## Part 2: Profile forms (done)
 
 ### Pages
 
@@ -74,17 +76,20 @@ form whenever they open any other page.
 
 One small step at a time, test first for each.
 
-1. Profile page (can be checked with the made-up students).
-2. Show the form with the lists from the database.
-3. Save the form, with the "at least one" rules.
-4. The gate.
-5. Styles for the form and the initials circle.
+1. Profile page (can be checked with the made-up students). **Done.**
+2. Show the form with the lists from the database. **Done.**
+3. Save the form, with the "at least one" rules. **Done.**
+4. The gate. **Done.**
+5. Styles for the form and the initials circle. **Done.**
 
 ### Files
 
 - New: `routes/profile.js`, `middleware/setup.js` (the gate),
-  `views/profile.ejs`, `views/profile-form.ejs`, `tests/profile.test.js`.
-- Small changes: `app.js`, `public/style.css`.
+  `views/profile.ejs`, `views/profile-form.ejs`, `tests/profile.test.js`,
+  `tests/profile-empty-lists.test.js`.
+- Small changes: `app.js` (Koulla's marked place only), `public/style.css`
+  (section 8 at the bottom only), and Walied's `tests/home.test.js` and
+  `tests/guard.test.js` (7 `loginAs(...)` lines, see "The setup gate").
 - No new library.
 
 ### Decisions (Koulla, 13 October 2026)
@@ -120,21 +125,57 @@ One small step at a time, test first for each.
 - No "Edit profile" link in the header. The profile page already has an
   "Edit my profile" link on the user's own page.
 
-### Waiting for feature 01
+### Feature 01 is merged
 
-Checked on 14 October 2026: Walied's feature 01 is in pull request #3
-(`01-registration-login`). It is **open, not merged**, so it is not in this app
-folder yet. Reading the branch on GitHub shows it has the agreed pieces:
-`requireLogin` and `loadCurrentUser` in `middleware/auth.js`, the form reader in
-`app.js`, `tests/loginHelper.js`, and the marked place for Koulla's lines in
-`app.js`. `currentUser` includes `setup_complete`, which the gate can use.
+Checked on 14 October 2026: Walied's feature 01 (pull request #3) and the
+dashboard (feature 03) are merged into `main` and are in this app folder. All
+65 tests pass. The agreed pieces are there: `requireLogin` and
+`loadCurrentUser` in `middleware/auth.js`, the form reader in `app.js`,
+`tests/loginHelper.js`, and the marked place for Koulla's lines in `app.js`.
+`currentUser` includes `setup_complete`, which the gate can use. Walied has also
+added the "My profile" header link, and the dashboard links each match to
+`/profile/<id>`.
 
 The privacy page, login and logout are plugged in **before** `requireLogin`, and
 the public files before that, so a gate placed after `requireLogin` lets them
 through on its own. The test above still checks this.
 
-What must happen before the forms are built:
+### Choices for the profile page (Koulla, 14 October 2026)
 
-1. Pull request #3 is merged into `main`.
-2. The new `main` is brought into this app folder.
-3. `npm install` and `npm test` pass here.
+- "Profile not found" is sent with the code 404, the web's standard
+  "not found" code. This includes an address that is not a number, such as
+  `/profile/abc`.
+- The initials are the first letter of the first and last names
+  ("Sam Taylor" gives ST, "Cher" gives C).
+- The ticks are shown with skills grouped under their category. Since build
+  step 5 each list shows its ticks as small rounded tags in a row.
+- **Circle colours** (build step 5, option b): each person's initials circle
+  gets one of 5 colours, picked from their id number (`id % 5 + 1`), so the
+  same person always has the same colour. Light mode uses darker colours with
+  white initials; dark mode uses lighter colours with dark initials. A test
+  in `tests/profile.test.js` checks that every pair passes the 4.5 contrast
+  rule (PRD section 7). Red was swapped for burnt orange so a circle never
+  looks like an error message.
+- ~~A user can see their own unfinished profile.~~ Changed by Koulla on
+  14 October 2026 (build step 4): the gate sends a user who has not finished
+  setup to the form from **every** page except the form itself, including
+  their own profile page. Their profile would be empty anyway, and one simple
+  rule is easier to explain and test.
+
+### The setup gate (Koulla, 14 October 2026)
+
+- `requireSetup` in `middleware/setup.js`, switched on in `app.js` directly
+  after `requireLogin` and above the profile routes.
+- A user who has not finished setup can open only `/profile/edit` (to see and
+  save the form). Every other logged-in page sends them there.
+- The privacy notice, login, logout and the files in `public/` sit above
+  `requireLogin`, so the gate never sees them and they stay open.
+- Walied's dashboard tests (`tests/home.test.js`, 6 tests) and one header
+  test (`tests/guard.test.js`) now log in with `setupComplete: true`, because
+  their users must get past the gate. Only those `loginAs(...)` lines changed;
+  Walied to confirm in the pull request.
+
+### Open questions
+
+- **Should admins skip the setup gate?** Right now the gate covers everyone,
+  admins too. Decide when the admin screens (feature 05) are built.
