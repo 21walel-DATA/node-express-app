@@ -5,13 +5,16 @@
 
 const test = require('node:test');
 const assert = require('node:assert');
+const bcrypt = require('bcryptjs');
 
 // Load the helper first so the throwaway in-memory database is used
 require('./helpers');
 const db = require('../db');
 
-// The seed script gives us one function, seed(), that fills the database
-const seed = require('../scripts/seed');
+// The seed script gives us two functions: seed() fills the database, and
+// seedOnStartup() does the same only when SEED_DEMO_DATA is 'true'.
+// The { } pick those two out of the object the file shares.
+const { seed, seedOnStartup } = require('../scripts/seed');
 
 // Counts the rows in a table and returns the number.
 // The table name is typed by us below, never by a user, so it is safe to
@@ -105,4 +108,66 @@ test('running the seed twice does not make copies', () => {
 
   // deepStrictEqual compares two lists item by item
   assert.deepStrictEqual(after, before);
+});
+
+// 5. NO PERMISSION: without a demo password, nobody can log in as a made-up student
+test('without a password, no password works for the made-up students', () => {
+  // The seed at the top of this file was run with no password
+  const users = db.prepare('SELECT name, password_hash FROM users').all();
+
+  for (const user of users) {
+    // bcrypt.compareSync is the same check the login route makes. It
+    // answers true only when the typed password matches the hash.
+    assert.strictEqual(
+      bcrypt.compareSync('any-guess', user.password_hash),
+      false,
+      `someone could log in as ${user.name}`
+    );
+  }
+});
+
+// 6. NORMAL CASE: with a demo password, every made-up student can log in
+test('with a password, every made-up student can log in with it', () => {
+  // INSERT OR IGNORE never changes a student who is already there, so
+  // start again. ON DELETE CASCADE also removes everything they ticked.
+  db.prepare('DELETE FROM users').run();
+
+  seed('demo-password');
+
+  const users = db.prepare('SELECT name, password_hash FROM users').all();
+  assert.strictEqual(users.length, 8);
+
+  for (const user of users) {
+    // The real password must never be stored, only its hash
+    assert.notStrictEqual(user.password_hash, 'demo-password');
+
+    // The right password works and a wrong one does not
+    assert.ok(
+      bcrypt.compareSync('demo-password', user.password_hash),
+      `${user.name} cannot log in with the demo password`
+    );
+    assert.strictEqual(bcrypt.compareSync('wrong-password', user.password_hash), false);
+  }
+});
+
+// 7. NORMAL CASE: at startup, nothing is seeded unless SEED_DEMO_DATA is 'true'
+test('seedOnStartup does nothing unless SEED_DEMO_DATA is "true"', () => {
+  // Start with no students, so we can see whether any are added
+  db.prepare('DELETE FROM users').run();
+
+  // Each { } is a pretend list of environment variables
+  assert.strictEqual(seedOnStartup({}), false);
+  assert.strictEqual(seedOnStartup({ SEED_DEMO_DATA: 'false' }), false);
+  assert.strictEqual(seedOnStartup({ SEED_DEMO_DATA: 'yes' }), false);
+
+  assert.strictEqual(countRows('users'), 0);
+});
+
+// 8. NORMAL CASE: at startup, SEED_DEMO_DATA 'true' adds the made-up students
+test('seedOnStartup seeds when SEED_DEMO_DATA is "true"', () => {
+  db.prepare('DELETE FROM users').run();
+
+  assert.strictEqual(seedOnStartup({ SEED_DEMO_DATA: 'true' }), true);
+
+  assert.strictEqual(countRows('users'), 8);
 });

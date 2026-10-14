@@ -3,12 +3,20 @@
 // and eight made-up students, so there is something to look at and test.
 // Run it with: npm run seed
 //
+// To let people log in as the made-up students, give a demo password in the
+// SEED_PASSWORD environment variable. In PowerShell:
+//   $env:SEED_PASSWORD='pick-something'; npm run seed
+// Without it, the students get a placeholder that no password matches, so
+// nobody can log in as them. The password is never written in this file,
+// because the code is public on GitHub.
+//
 // It is safe to run more than once. Every INSERT below is "INSERT OR IGNORE",
 // which skips a row that is already there instead of adding a copy.
 //
 // The students are invented. Their emails end in @example.com, an address
 // kept for pretend use that can never reach a real person.
 
+const bcrypt = require('bcryptjs');
 const db = require('../db');
 
 // ---------------------------------------------------------
@@ -60,11 +68,13 @@ const INTERESTS = [
 const SOFTWARE = 'Software development';
 const BUSINESS = 'Business development';
 
-// Stored in place of a scrambled password. It is not a real scrambled
-// password, so nobody can log in as a made-up student yet.
-// TODO: once feature 01 (login) is merged, replace this with a real hash of
-// a shared demo password.
+// Used when no demo password is given. It is not a real scrambled
+// password, so bcrypt never finds a match and nobody can log in.
 const PLACEHOLDER_PASSWORD_HASH = 'seed-placeholder-not-a-real-hash';
+
+// How much work bcrypt does when it scrambles the demo password.
+// The same strength as the registration form in routes/auth.js.
+const BCRYPT_ROUNDS = 10;
 
 // lookingFor uses the short codes from the looking_for_options table:
 // cofounder, collaborator, find_mentor, be_mentor, social.
@@ -179,7 +189,8 @@ function findId(statement, value, what) {
 // 4. FILLING THE DATABASE
 // ---------------------------------------------------------
 
-function fillDatabase() {
+// passwordHash is the scrambled password every made-up student gets
+function fillDatabase(passwordHash) {
   // Prepared statements. Each ? is filled in later with a real value, so
   // the values can never be mistaken for SQL.
   const addCategory = db.prepare('INSERT OR IGNORE INTO categories (name) VALUES (?)');
@@ -229,7 +240,7 @@ function fillDatabase() {
     addUser.run(
       student.name,
       student.email,
-      PLACEHOLDER_PASSWORD_HASH,
+      passwordHash,
       findId(courseId, student.course, 'course'),
       student.bio,
       student.businessIdea
@@ -256,7 +267,39 @@ function fillDatabase() {
 // db.transaction wraps the work so it is "all or nothing": if any step
 // fails, everything this run added is undone, and the database is never
 // left half filled.
-const seed = db.transaction(fillDatabase);
+const fillInTransaction = db.transaction(fillDatabase);
+
+// Fills the database. password is the demo password for the made-up
+// students; leave it out and they get the placeholder instead.
+function seed(password) {
+  // Scramble the password once, before the transaction starts, and give
+  // every student the same hash. Hashing is slow on purpose, so doing it
+  // once instead of eight times keeps the seed quick.
+  const passwordHash = password
+    ? bcrypt.hashSync(password, BCRYPT_ROUNDS)
+    : PLACEHOLDER_PASSWORD_HASH;
+
+  fillInTransaction(passwordHash);
+}
+
+// Seeds only when the SEED_DEMO_DATA setting is switched on.
+// index.js calls this as the app starts, which is how the made-up students
+// reach Railway: switch SEED_DEMO_DATA on in Railway's Variables tab,
+// redeploy, check, then remove it again. (Left on, every redeploy would
+// bring back a made-up student that an admin had deleted.)
+// env is the list of environment variables, usually process.env. Tests
+// pass their own list instead.
+// Returns true if it seeded, so the caller can say so.
+function seedOnStartup(env) {
+  // Environment variables are always text, so compare with the text 'true'.
+  // Anything else ('false', 'yes', not set) leaves the database alone.
+  if (env.SEED_DEMO_DATA !== 'true') {
+    return false;
+  }
+
+  seed(env.SEED_PASSWORD);
+  return true;
+}
 
 // ---------------------------------------------------------
 // 5. RUNNING THE SCRIPT
@@ -266,9 +309,19 @@ const seed = db.transaction(fillDatabase);
 // When a test loads the file with require, nothing runs until the test
 // calls seed() itself.
 if (require.main === module) {
-  seed();
+  // process.env holds the environment variables. SEED_PASSWORD is
+  // undefined when it was not set.
+  seed(process.env.SEED_PASSWORD);
   console.log(`Seed finished: ${STUDENTS.length} made-up students are in the database.`);
+
+  // Say clearly which password the students got, without printing it
+  if (process.env.SEED_PASSWORD) {
+    console.log('They can log in with the password in SEED_PASSWORD.');
+  } else {
+    console.log('SEED_PASSWORD was not set, so nobody can log in as them.');
+  }
 }
 
-// Share the function so the tests can call it
-module.exports = seed;
+// Share both functions: the tests call seed(), and index.js and the
+// tests call seedOnStartup()
+module.exports = { seed, seedOnStartup };
