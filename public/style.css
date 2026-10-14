@@ -274,3 +274,42 @@ main.container {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* ---------------------------------------------------------
+   7. DASHBOARD
+   --------------------------------------------------------- */
+
+/* The list of matches. list-style: none hides the 1. 2. 3. numbers,
+   because each match is shown as a card instead. */
+.match-list {
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem 0 0;
+}
+
+/* One match: a box with a border, using the same colours as .notice */
+.match-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+/* The person's name. Smaller than a normal h2, since there are several. */
+.match-card h2 {
+  font-size: 1.25rem;
+  margin: 0 0 0.25rem;
+}
+
+/* The course and score line under the name */
+.match-meta {
+  color: var(--color-muted);
+  margin: 0 0 0.5rem;
+}
+
+/* The reasons they match */
+.match-reasons {
+  margin: 0;
+  padding-left: 1.25rem;
+}
