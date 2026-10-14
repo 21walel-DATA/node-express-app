@@ -2,7 +2,13 @@
 
 **Owner:** Koulla
 **Status:** plan agreed by Koulla on 14 October 2026 (evening, after the
-feature freeze; Koulla and Walied chose to build it tonight). Not built yet.
+feature freeze; Koulla and Walied chose to build it tonight). **Built** on
+14 October 2026 (branch `06-account`): all five build steps done, all tests
+pass, and every action was tried on the running app with a demo database
+(rename, refused email change, password change, refused and real delete).
+Koulla's check by eye (light and dark mode, phone width, keyboard) is not
+confirmed yet. Waiting for Walied's review, and for his "Account" header
+link.
 See `PRD.md` sections 4.1 and 4.6, and `roadmap.md` feature 06.
 
 A spec says how one feature should behave and how we will check it.
@@ -124,6 +130,9 @@ that if time runs out, Part B can be cut (roadmap cut order, item 2).
    deleted." The right one uses `deleteUser`, logs the user out (the same
    way as Log out) and shows the goodbye page straight away, because it
    sits behind the login check.
+5. Styles. **Done:** section 11 at the bottom of `public/style.css`, one
+   rule: the red `button-danger` for "Delete my account". A test checks
+   its text passes the 4.5 contrast rule in light and dark mode.
 
 ## Open questions
 
