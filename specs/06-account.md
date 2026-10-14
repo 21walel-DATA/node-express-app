@@ -7,8 +7,9 @@ feature freeze; Koulla and Walied chose to build it tonight). **Built** on
 pass, and every action was tried on the running app with a demo database
 (rename, refused email change, password change, refused and real delete).
 Koulla checked the page by eye (light and dark mode, phone width,
-keyboard). Waiting for Walied's review, and for his "Account" header
-link.
+keyboard). Merged by Walied in pull request #12, and **checked on the
+live site** the same evening (see "Checked on the live site" below). Still
+waiting for Walied's "Account" header link.
 See `PRD.md` sections 4.1 and 4.6, and `roadmap.md` feature 06.
 
 A spec says how one feature should behave and how we will check it.
@@ -133,6 +134,40 @@ that if time runs out, Part B can be cut (roadmap cut order, item 2).
 5. Styles. **Done:** section 11 at the bottom of `public/style.css`, one
    rule: the red `button-danger` for "Delete my account". A test checks
    its text passes the 4.5 contrast rule in light and dark mode.
+
+## Checked on the live site
+
+Reported by Koulla on the evening of 14 October 2026, at
+https://node-express-app-production.up.railway.app (Railway deployment of
+`7ad2a6a`, the merge of pull request #12). The test accounts Test Alpha (A),
+Test Bravo (B) and Test Charlie (C) were used, in separate browser windows.
+B was connected to A, so check 13 could show what deleting removes.
+
+**Result: all 15 checks passed.**
+
+| # | Who | Check | Result |
+|---|---|---|---|
+| 1 | A | My profile, then Account settings: name and email filled in | Passed |
+| 2 | A | Change the name only: "Your details have been saved.", new name in the header | Passed |
+| 3 | A | Change the email with no password: "To change your email, enter your current password." | Passed |
+| 4 | A | Change the email with the password: saved | Passed |
+| 5 | A | Log out, log in with the new email: works | Passed |
+| 6 | A | Wrong current password: "Your current password is incorrect." | Passed |
+| 7 | A | Two different new passwords: "The two new passwords do not match." | Passed |
+| 8 | A | Change the password properly: "Your password has been changed.", still logged in | Passed |
+| 9 | A | Log out: the old password is refused, the new one works | Passed |
+| 10 | B | Delete with a wrong password: refused, nothing deleted, still logged in | Passed |
+| 11 | B | Delete with the right password: goodbye page, header shows Log in / Register | Passed |
+| 12 | B | Log in again: refused | Passed |
+| 13 | A | B is gone from Connections; the old conversation shows "misdirected"; B's profile shows "Profile not found" | Passed |
+| 14 | Anyone | Dark mode and phone width: the red Delete button is readable, nothing runs off the side | Passed |
+| 15 | C, A | Delete C, then A: goodbye page each time | Passed |
+
+Not tried in the browser: sending someone else's id in a form, and the
+exact 8 and 72 character password limits. The automated tests cover these.
+
+Check 15 also tidied the live site: all three test accounts from the
+feature 04 check are now deleted.
 
 ## Open questions
 
