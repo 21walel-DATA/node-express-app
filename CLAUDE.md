@@ -2,7 +2,7 @@
 
 ## About me
 
-- I work in a university / academic setting (City, University of London).
+- I'm a student on the TechNative Digital bootcamp.
 - I am a beginner developer. Assume I am still learning the fundamentals.
 - My projects are for myself, coursework and my portfolio. There are no clients, deadlines from stakeholders, or production users.
 - I build REST APIs and backends, full-stack web apps, data / analytics work, and coursework prototypes.
